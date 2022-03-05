@@ -4,7 +4,7 @@ This is a description of the pipeline followed for the *Zamia furfuracea* bacter
 
 ### Notes on reading this instructions
 
-After its creation the working directory from where the commands will be run is `Documentos/genomas/zamia-dic202/` so the used paths will be absolute from there.
+After its creation the working directory from where the commands will be run is `Documentos/genomas/zamia-dic2020/` so the used paths will be absolute from there.
 
 ## Download the sequencing data
 
@@ -15,8 +15,8 @@ mkdir -p zamia-dic2020/raw_data/FastQC
 
 Enter the server with the data:
 ~~~
-sftp *******@*****.mazorkita.labsergen.langebio.cinvestav.mx
-(pasword: ******)
+sftp -------@-----.mazorkita.labsergen.langebio.cinvestav.mx
+(pasword: -------)
 ~~~
 
 List of accestions to download:
@@ -29,10 +29,10 @@ List of accestions to download:
 - AC1ME2SS42
 - AC1ME2SS43
 
-Use command 'get' to download files:
+Use command `get` to download files:
 ~~~
 for i in {36..43}
-	do
+do
 	get *S$i*
 done
 ~~~
