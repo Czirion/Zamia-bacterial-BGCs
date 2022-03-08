@@ -1,11 +1,12 @@
+UNDER CONSTRUCTION
+
 # Zamia-bacterial-BGCs
 
-UNDER CONSTRUCTION
-This is a description of the pipeline followed for the *Zamia furfuracea* bacterial BGC mining project (2020-2022). 
+This is a description of the pipeline followed for the *Zamia furfuracea* bacterial BGC mining project (2020-2022).
 
 ### Notes on reading this instructions
 
-After its creation the working directory from where the commands will be run is `Documentos/genomas/zamia-dic2020/` so the used paths will be absolute from there.
+After its creation the working directory from where the commands will be run is `zamia-dic2020/` so the used paths will be absolute from there.
 
 ## Download the sequencing data
 
@@ -38,6 +39,8 @@ do
 done
 ~~~
 
+## Organize the files
+
 Move FastQC files to `FastQC/` :
 ~~~
 mv *.html FastQC/
@@ -68,19 +71,22 @@ do
 done
 ~~~
 
-## Create the metadata spreadsheet
-
-The metadata file is located in the `metadata` folder in this repository with the name `metadatos.csv`.
-
-## Taxonomic assignment of all the reads
-
-Having the script `kraken_reads.sh` (can be found in the `taxonomy` folder in this repository) in the `zamia-dic2020/` folder in the server move it to each sample folder with:
+Copy all the scripts to each sample folder.
+Having the scripts `kraken_reads.sh`, `metaspades.sh`, `minimap.sh` (found in this repository) in the `zamia-dic2020/` folder in the server move them to each sample folder with:
 ~~~
 for directory in Zf*
 do
 	scp kraken_reads.sh ${directory}
+	scp metaspades.sh ${directory}
+	scp minimap.sh ${directory}
 done
 ~~~
+
+## Create the metadata spreadsheet
+
+The metadata file is located in this repository with the name `metadatos.csv`.
+
+## Taxonomic assignment of all the reads
 
 ### Run Kraken and Bracken
 
@@ -128,18 +134,88 @@ The Phyloseq script can be found in: `taxonomy/phyloseq_reads.md` in this reposi
 
 ## Metagenomics assembly
 
-Having the script `metaspades.sh` (can be found in the `assembly` folder in this repository) in the `zamia-dic2020/` folder in the server move it to each sample folder with:
-~~~
-for directory in Zf*
-do
-	scp metaspades.sh ${directory}
-done
-~~~
-
 ### Run Metaspades
 
 Inside each sample folder in the server (example for sample Zf_36):
 ~~~
 sh metaspades.sh *R1*.fastq *R2*.fastq Zf_36/
 ~~~
+
+Once you have the Metaspades output go to the local machine to copy the scaffolds files there:
+~~~
+mkdir ensambles_metag/
+scp <serveradress>/zamia-dic2020/Zf*/ASSMBLIES/*.fasta ./ensambles_metag/
+~~~
+
+### Run MetaQuast
+
+Run MetaQuast on all scaffolds and contigs files. In the local machine:
+~~~
+mkdir ensambles_metag/metaQUAST
+metaquast.py -o metaQUAST --space-efficient --split-scaffolds Zf_36_metaspades_scaffolds.fasta Zf_37_metaspades_contigs.fasta Zf_37_metaspades_scaffolds.fasta Zf_38_metaspades_contigs.fasta Zf_38_metaspades_scaffolds.fasta Zf_39_metaspades_contigs.fasta Zf_39_metaspades_scaffolds.fasta Zf_40_metaspades_contigs.fasta Zf_40_metaspades_scaffolds.fasta Zf_41_metaspades_contigs.fasta Zf_41_metaspades_scaffolds.fasta Zf_42_metaspades_contigs.fasta Zf_42_metaspades_scaffolds.fasta Zf_43_metaspades_contigs.fasta Zf_43_metaspades_scaffolds.fasta
+~~~
+
+View the results with Firefox and erase the heavy files about the downloaded references and corrected input.
+
+## Binning
+
+### Run the alignment with Minimap
+
+Inside each sample folder in the server (example for sample Zf_36):
+~~~
+sh minimap.sh ASSEMBLIES/Zf_36_metaspades_scaffolds.fasta *R1*.fastq *R2*.fastq Zf_36
+~~~
+
+### Copy the alignment files to the local machine
+
+In the local machine:
+~~~
+mkdir vamb/
+scp <serveradress>/zamia-dic2020/Zf*/*.bam ./vamb/
+~~~
+
+### Run the binning with VAMB
+
+In the local machine run vamb for each sample (example fo Zf_36):
+~~~
+cd vamb/
+vamb --outdir Zf_36 --fasta ../ensambles_metag/Zf_36_metaspades_scaffolds.fasta --bamfiles Zf_36.bam --minfasta 200000 
+cd ..
+~~~
+Remove the `bam` files.
+
+Rename the bins to make them have the sample name and copy them to a new folder:
+~~~
+for directory in {36..43}
+do 
+	cd Zf_$directory/bins/
+	ls | while read line
+		do 
+			echo $line Zf_$directory-$line 
+			mv $line Zf_$directory-$line
+		done
+	cd ../..
+done
+
+mkdir ensambles_mags/
+scp vamb/Zf*/bins/*.fna ensambles_mags/
+~~~
+
+### Run Quast on the MAGs
+
+In the local machine:
+~~~
+cd ensambles_mags/
+quast.py -o quast --space-efficient <listaDeArchivosDeMAGs>
+~~~
+
+View the results with Firefox and erase the heavy files about the downloaded references and corrected input.
+
+Copy the MAGs to the server.
+In the server create a folder named `ensambles_mags` and then in the local computer:
+~~~
+scp ensambles_mags/ <serveradress>/zamia-dic2020/ensambles_mags/
+~~~
+
+### Run CheckM
 
