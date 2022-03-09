@@ -18,10 +18,14 @@ It follows the next seps:
 	- Run VAMB
 	- Run Quast
 	- Run CheckM
+- Taxonomic assignment of the MAGs's contigs
+	- Run Kraken and Bracken
+	- Make input for Phyloseq (and Phyloseq script)
+	
 
 #### Notes on reading this instructions
 
-After its creation the working directory from where the commands will be run is `zamia-dic2020/` so the used paths will be absolute from there.
+After its creation the working directory from where the commands will be run is `zamia-dic2020/` so the used paths will be absolute from there. This is true for the local machine and the server.
 
 The software used is listed in `software.md` in this repository.
 
@@ -147,7 +151,7 @@ mv Zf.biom phyloseq/
 ~~~
 
 Copy the `metadatos.csv` file to `taxonomia_reads/` to be able to use Phyloseq.
-The Phyloseq script can be found in: `taxonomy/phyloseq_reads.md` in this repository.
+The Phyloseq script can be found in `phyloseq_reads.md` in this repository.
 
 ## Metagenomics assembly
 
@@ -191,6 +195,14 @@ mkdir vamb/
 scp <serveradress>/zamia-dic2020/Zf*/*.bam ./vamb/
 ~~~
 
+### Move the raw data file to a single folder
+
+In the server: 
+~~~shell
+mkdir raw_data/
+mv Zf*/*.fastq* raw_data/
+~~~
+
 ### Run VAMB
 
 In the local machine run vamb for each sample (example fo Zf_36):
@@ -229,10 +241,44 @@ quast.py -o quast --space-efficient <listOfMAGsFiles>
 View the results with Firefox and erase the heavy files about the downloaded references and corrected input.
 
 Copy the MAGs to the server.
-In the server create a folder named `ensambles_mags` and then in the local computer:
+In the server create a folder named `zamia-dic2020/ensambles_mags` and then in the local computer:
 ~~~shell
-scp ensambles_mags/ <serveradress>/zamia-dic2020/ensambles_mags/
+scp ensambles_mags/* <serveradress>/zamia-dic2020/ensambles_mags/
 ~~~
 
 ### Run CheckM
 
+Put the `checkm.sh` script (found in this repository) in `zamia-dic2020/` in the server.
+And run it:
+~~~shell
+sh checkm.sh
+~~~
+
+## Taxonomy assignment of the MAGs's contigs
+
+### Run Kraken and Bracken
+
+Put the `kraken_mags.sh` script (found in this repository) in `zamia-dic2020/` in the server.
+And run it:
+~~~shell
+sh kraken_mags.sh
+~~~
+
+### Make input for Phyloseq
+
+Once you have the Kraken and Bracken output go to the local machine to copy the bracken_kraken reports there:
+~~~shell
+mkdir taxonomia_mags
+scp <serveradress>/zamia-dic2020/TAXONOMY_MAGS/*bracken_kraken.report ./taxonomia_mags/
+~~~
+
+In `taxonomia_mags/` use `kraken-biom` to make the `.biom` file that we need to visualize the taxonomy with Phyloseq in R. And move the resulting file to a folder named `phyloseq` inside `taxonomia_mags/`
+~~~shell
+kraken-biom <listOfMAGsKrakenBrackenReports> --fmt json -o Zf_mags.biom
+
+mkdir phyloseq/
+mv Zf_mags.biom phyloseq/
+~~~
+
+Copy the `metadatos.csv` file to `taxonomia_mags/` to be able to use Phyloseq.
+The Phyloseq script can be found in `phyloseq_mags.md` in this repository.
