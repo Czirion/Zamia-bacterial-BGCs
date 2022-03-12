@@ -151,7 +151,7 @@ mv Zf.biom phyloseq/
 ~~~
 
 Copy the `metadatos.csv` file to `taxonomia_reads/` to be able to use Phyloseq.
-The Phyloseq script can be found in `phyloseq_reads.md` in this repository.
+The Phyloseq script can be found in `phyloseq_reads.Rmd` in this repository.
 
 ## Metagenomics assembly
 
@@ -281,4 +281,4 @@ mv Zf_mags.biom phyloseq/
 ~~~
 
 Copy the `metadatos.csv` file to `taxonomia_mags/` to be able to use Phyloseq.
-The Phyloseq script can be found in `phyloseq_mags.md` in this repository.
+The Phyloseq script can be found in `phyloseq_mags.Rmd` in this repository. 
