@@ -1,0 +1,355 @@
+---
+title: "phyloseq_reads"
+author: "Clau Zirion"
+date: "9/3/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, root.dir = "/home/claudia/Documentos/genomas/zamia-dic2020/taxonomia_reads/phyloseq/")
+```
+
+## Use Phyloseq to make abundance plots for metagenomics reads
+
+This script is for making plots that show the absolute and relative abundance of bacterial reads at different taxonomic levels and for different taxonomic groups for the samples of the Zamia-bacterial-BGCs project (2020-2022).
+
+### Load the libraries
+```{r, warning = FALSE, message=FALSE}
+library(phyloseq)
+library(ggplot2)
+library(dplyr)
+library(scales)
+library(RColorBrewer)
+library(ggpubr)
+```
+
+### Make the Phyloseq object
+
+```{r, warning=FALSE, message=FALSE}
+setwd("/home/claudia/Documentos/genomas/zamia-dic2020/taxonomia_reads/phyloseq/")
+raw_biom<-import_biom("Zf.biom")
+raw_biom@tax_table@.Data<- substring(raw_biom@tax_table@.Data, 4) # Remove "k__"from OTU names
+colnames(raw_biom@tax_table@.Data)<- c("Reino", "Filo", "Clase", "Orden", "Familia", "Genero", "Especie") # Give names to taxonomic categories
+
+metadatos<-read.csv("metadatos.csv") # Read metadata
+row.names(metadatos) <- metadatos$ID
+metadatos$Localidad<-factor(metadatos$Localidad, levels = c("San_Juan_Volador", "Monte_Oscuro"))
+levels(metadatos$Localidad)<-c("San Juan Volador", "Monte Oscuro")
+
+otu<-otu_table(raw_biom@otu_table@.Data, taxa_are_rows = TRUE) # Generate otu_table
+colnames(otu) <-metadatos$ID
+
+tax<-tax_table(raw_biom@tax_table@.Data) # Generate taxonomy table
+
+metad<-sample_data(metadatos)# Generate metadata table
+
+global<-phyloseq(otu, tax, metad) # It is the complete phyloseq object with the 3 previous tables
+global@tax_table@.Data[,7]<-paste(global@tax_table@.Data[,6], global@tax_table@.Data[,7], sep= "_") # Put the complete species names in the column for Species (instead of the epithet only)
+```
+
+## Make the absolute abundance plot without the seeds sample
+
+Make the object
+```{r, warning=FALSE, message=FALSE}
+no.semilla<-prune_samples(metad$TipoDeMuestra != "Semillas", global) # Remove sample Zf_43 from object
+
+no.semilla_df<-psmelt(no.semilla) # Convert to data frame
+no.semilla_df <- no.semilla_df %>%
+  select(Sample, Abundance, TipoDeMuestra, Localidad) %>% # Make smaller object with only some columns
+  group_by(Sample) %>%
+  summarize(Abundancia = sum(Abundance),
+            Numeros = format(Abundancia, big.mark=","),
+            TipoDeMuestra,
+            Localidad) %>% # Make smaller object with only abundance sum per sample
+  unique() # eliminate repetitions
+
+no.semilla_df$TipoDeMuestra<- factor(no.semilla_df$TipoDeMuestra, levels = c("Coraloide", "Suelo", "Raiz")) # Put Sample Type levels in chosen object to coincide with corresponding sample ID order
+```
+
+Make the plot
+```{r, warning=FALSE, message=FALSE}
+sample_colors<-brewer.pal(length(levels(no.semilla_df$TipoDeMuestra)),"Dark2") # Make color vector
+abund_abs_plot<- ggplot(no.semilla_df, aes(x=Sample, y=Abundancia, fill = TipoDeMuestra)) +
+  geom_bar(aes(), stat="identity", position="stack") +
+  labs(x= "Muestras", y = "Abundancia absoluta") + # Change labels to be in spanish
+  facet_grid(~Localidad, scales = "free_x") + # Divide in facets according to location type
+  theme(axis.text.y=element_blank(), axis.ticks.y = element_blank(), )+ # Remove y axis labels and ticks
+  scale_fill_manual(values=sample_colors, name= "Tipo de muestra") + # Assign color vector to fill
+  geom_text(aes(label= Numeros), position = position_dodge(width=0.5), vjust =-0.25, size = 2.5 ) # Add the abundance number as text over the bars
+
+ggsave("abund_abs.png", plot = abund_abs_plot, width = 6.5, height = 3.65, units = "in", dpi = 400)
+abund_abs_plot
+```
+
+
+## Make the absolute abundance plot without Zf_36 and Zf_43 samples
+
+Make the object
+```{r, warning=FALSE, message=FALSE}
+SRC<-prune_samples(metad$ID != c("Zf_36","Zf_43"), global) # Remove cyanobacteria and seeds samples
+
+SRC_df<-psmelt(SRC) # Convert to data frame
+SRC_df<- SRC_df %>%
+  select(Sample, Abundance, TipoDeMuestra, Localidad) %>% # Make smaller object with only some columns
+  group_by(Sample) %>%
+  summarize(Abundancia = sum(Abundance),
+            Numeros = format(Abundancia, big.mark=","),
+            TipoDeMuestra,
+            Localidad) %>% # Make smaller object with only abundance sum per sample
+  unique() # eliminate repetitions
+
+SRC_df$TipoDeMuestra<- factor(SRC_df$TipoDeMuestra, levels = c("Coraloide", "Suelo", "Raiz")) # Put Sample Type levels in chosen object to coincide with corresponding sample ID order
+sample_colors<-brewer.pal(length(levels(SRC_df$TipoDeMuestra)),"Dark2") # Make color vector
+```
+
+Make the plot
+```{r, warning=FALSE, message=FALSE}
+abund_abs_plot_SRC<- ggplot(SRC_df, aes(x=Sample, y=Abundancia, fill = TipoDeMuestra)) +
+  geom_bar(aes(), stat="identity", position="stack") +
+  labs(x= "Muestras", y = "Abundancia absoluta") + # Change labels to be in spanish
+  facet_grid(~Localidad, scales = "free_x") + # Divide in facets according to location type
+  theme(axis.text.y=element_blank(), axis.ticks.y = element_blank(), )+ # Remove y axis labels and ticks
+  scale_fill_manual(values=sample_colors, name= "Tipo de muestra") + # Assign color vector to fill
+  geom_text(aes(label= Numeros), position = position_dodge(width=0.5), vjust =-0.25, size = 2.5 ) # Add the abundance number as text over the bars
+
+ggsave("abund_abs_SRC.png", plot = abund_abs_plot_SRC, width = 6.5, height = 3.65, units = "in", dpi = 400)
+abund_abs_plot_SRC
+```
+
+## Make relativa abundance at phylum level for SRC samples
+
+Make the object
+```{r}
+SRC<-prune_samples(metad$ID != c("Zf_36","Zf_43"), global) # Remove cyanobacteria and seeds samples
+phylum_SRC<- tax_glom(SRC, "Filo") # Agglomerate at Phylum level
+relative_phyla_SRC<- transform_sample_counts(phylum_SRC, function(x) x / sum(x) ) #Transform to relative abundance
+rel_phyl_SRC_df<-psmelt(relative_phyla_SRC) # convert to data frame
+rel_phyl_SRC_df$Filo<- as.character(rel_phyl_SRC_df$Filo) # convert to character type
+rel_phyl_SRC_df$Filo[rel_phyl_SRC_df$Abundance < 0.01] <- "Fila < 1% de abundancia" # Agglomerate in one name all the phyla with little abundance
+rel_phyl_SRC_df$Filo<- as.factor(rel_phyl_SRC_df$Filo) # convert to factor type
+rel_phyl_SRC_df$TipoDeMuestra<- factor(rel_phyl_SRC_df$TipoDeMuestra, levels = c("Coraloide", "Suelo", "Raiz"))  # Put Sample Type levels in chosen object to coincide with corresponding sample ID order
+```
+Make the plot
+```{r}
+phylum_colors<- brewer.pal(length(levels(rel_phyl_SRC_df$Filo)),"Dark2") 
+SRC_rel_phyl_plot<-ggplot(rel_phyl_SRC_df, aes(x=TipoDeMuestra, y=Abundance, fill=Filo)) +
+  geom_bar(aes(), stat="identity", position="stack") +
+  scale_fill_manual(values=phylum_colors) + 
+  labs(x= "Muestras", y = "Abundancia relativa") +
+  facet_grid(~Localidad, scales = "free_x")
+
+ggsave("abund_rel_phyl_SRC.png", plot = SRC_rel_phyl_plot, width = 6.5, height = 3.65, units = "in", dpi = 400)
+SRC_rel_phyl_plot
+```
+
+## Make relative abundance at phylum level for the Cyanobacteria sample
+
+Make the object
+```{r}
+Zf_36<- prune_samples(metad$ID == "Zf_36", global) # Remain only with cyanobacteria sample
+phylum_36<- tax_glom(Zf_36, "Filo") # Agglomerate at Phylum level
+relative_phyla_36<- transform_sample_counts(phylum_36, function(x) x / sum(x) ) #Transform to relative abundance
+rel_phyl_36_df<-psmelt(relative_phyla_36) # convert to data frame
+rel_phyl_36_df$Filo<- as.character(rel_phyl_36_df$Filo) # convert to character type
+rel_phyl_36_df$Filo[rel_phyl_36_df$Abundance < 0.001] <- "Fila < 0.1% de abundancia" # Agglomerate in one name all the phyla with little abundance
+rel_phyl_36_df$Filo<- as.factor(rel_phyl_36_df$Filo) # convert to factor type
+```
+Make the plot
+```{r}
+phylum_colors<- brewer.pal(length(levels(rel_phyl_36_df$Filo)),"Dark2")
+Zf_36_rel_ab_plot<-ggplot(rel_phyl_36_df, aes(x=TipoDeMuestra, y=Abundance, fill=Filo)) +
+  geom_bar(aes(), stat="identity", position="stack") +
+  scale_fill_manual(values=phylum_colors) +
+  labs(x= "Muestras", y = "Abundancia relativa") +
+  facet_grid(~Localidad, scales = "free_x")
+
+ggsave("abund_rel_36.png", plot = Zf_36_rel_ab_plot,  width = 3.8, height = 3.65, units = "in", dpi = 400)
+Zf_36_rel_ab_plot
+```
+
+## Make relative abundance at order level for SRC samples
+
+Make the object
+```{r}
+setwd("/home/claudia/Documentos/genomas/zamia-dic2020/taxonomia_reads/phyloseq/")
+
+rank_SRC<- tax_glom(SRC, "Orden") # Agglomerate at rank level
+relative_rank_SRC<- transform_sample_counts(rank_SRC, function(x) x / sum(x) ) #Transform to relative abundance
+rel_rank_SRC_df<-psmelt(relative_rank_SRC) # Convert to data frame
+rel_rank_SRC_df$Orden<- as.character(rel_rank_SRC_df$Orden) # Convert to character type
+rel_rank_SRC_df$Orden[rel_rank_SRC_df$Abundance < 0.005] <- "Ordenes < 0.5% de abundancia" # Agglomerate in one name all the orders with little abundance
+rel_rank_SRC_df$Orden<- as.factor(rel_rank_SRC_df$Orden) # Convert to factor type
+rel_rank_SRC_df$TipoDeMuestra<- factor(rel_rank_SRC_df$TipoDeMuestra, levels = c("Coraloide", "Suelo", "Raiz"))
+```
+Make the plot
+```{r}
+rank_colors<- brewer.pal(length(levels(rel_rank_SRC_df$Orden)),"Paired")
+SRC_rel_rank_plot<-ggplot(rel_rank_SRC_df, aes(x=TipoDeMuestra, y=Abundance, fill=Orden)) +
+  geom_bar(aes(), stat="identity", position="stack") +
+  scale_fill_manual(values=rank_colors) +
+  labs(x= "Muestras", y = "Abundancia relativa") +
+  facet_grid(~Localidad, scales = "free_x")+
+  #theme(legend.position = "bottom")+
+  guides(fill = guide_legend(ncol = 1))
+
+ggsave("abund_rel_orden_SRC.png", plot = SRC_rel_rank_plot, width = 6.5, height = 3.65, units = "in", dpi = 400)
+SRC_rel_rank_plot
+```
+
+## Make absolut abundace of *Caulobacter* reads plot
+
+Make the object
+```{r, warning=FALSE, message=FALSE}
+caulo_abs<-subset_taxa(SRC, Genero == "Caulobacter")
+caulo_abs_gen<-tax_glom(caulo_abs, "Genero")
+caulo_abs_df<-psmelt(caulo_abs_gen)
+caulo_abs_df <- caulo_abs_df %>%
+  select(Sample, Abundance, TipoDeMuestra, Localidad, Genero) %>% # Make smaller object with only some columns
+  group_by(Sample,Genero) %>%
+  summarize(Abundancia = sum(Abundance), Numeros = format(Abundancia, big.mark=","), TipoDeMuestra, Localidad) # Make smaller object with only abundance sum per sample
+caulo_abs_df$TipoDeMuestra<- factor(caulo_abs_df$TipoDeMuestra, levels = c("Coraloide", "Suelo", "Raiz"))
+```
+Make the plot
+```{r}
+caulo_abs_plot<- ggplot(caulo_abs_df, aes(x=TipoDeMuestra, y=Abundancia, fill = Genero)) +
+  geom_bar(aes(), stat="identity", position="stack") +
+  scale_fill_manual(values= "#1B9E77") +
+  labs(x= "Muestras", y = "Abundancia absoluta") + # Change labels to be in spanish
+  facet_wrap(~Localidad, scales = "free_x") + # Divide in facets according to location type
+  theme(legend.position = "none")+
+  scale_y_continuous(label=comma)+
+  geom_text(aes(label= Numeros), position =  position_dodge(width=0.5), vjust =-0.25, size = 2.5) # Add the abundance number as text over the bars
+
+ggsave("caulo_abs_SRC.png", plot = caulo_abs_plot, width = 6.5, height = 3.65, units = "in", dpi = 400)
+caulo_abs_plot
+```
+
+## Make relative abundance of Rhizobiales reads plot
+
+Make the object
+```{r, warning=FALSE, message=FALSE}
+rhiz_abs<-subset_taxa(SRC, Orden == "Rhizobiales")
+rhiz_abs_gen<-tax_glom(rhiz_abs, "Genero")
+rhiz_abs_df<-psmelt(rhiz_abs_gen)
+rhiz_abs_df$Genero<- as.character(rhiz_abs_df$Genero) # convert to character type
+rhiz_abs_df$Genero[rhiz_abs_df$Abundance < 50000] <- "Generos < 50,000 lecturas" # Agglomerate in one name all the phyla with little abundance
+rhiz_abs_df <- rhiz_abs_df %>%
+  select(Sample, Abundance, TipoDeMuestra, Localidad, Genero) %>% # Make smaller object with only some columns
+  group_by(Sample,Genero) %>%
+  summarize(Abundancia = sum(Abundance), Numeros = format(Abundancia, big.mark=","), TipoDeMuestra, Localidad)%>% # Make smaller object with only abundance sum per sample
+  unique()
+rhiz_abs_df$TipoDeMuestra<- factor(rhiz_abs_df$TipoDeMuestra, levels = c("Coraloide", "Suelo", "Raiz"))
+rhiz_abs_df$Genero<- as.factor(rhiz_abs_df$Genero) # convert to factor type
+# Make plot
+rhiz_colors<- brewer.pal(length(levels(rhiz_abs_df$Genero)),"Paired")
+names(rhiz_colors)<-levels(rhiz_abs_df$Genero) # Name the colors in the vector so they are asigned to a genus and both plot have the same color-genus correspondance
+
+rhiz_abs_df<-as.data.frame(rhiz_abs_df)
+rhiz_abs_PobNat<-filter(.data = rhiz_abs_df, rhiz_abs_df$Localidad == "San Juan Volador")
+rhiz_abs_UMA<-filter(.data = rhiz_abs_df, rhiz_abs_df$Localidad == "Monte Oscuro")
+```
+Make the plot
+```{r}
+rhiz_abs_plot_PobNat<-ggplot(rhiz_abs_PobNat, aes(x=TipoDeMuestra, y=Abundancia, fill = Genero)) +
+  geom_bar(aes(), stat="identity", position="stack") +
+  facet_wrap(Localidad ~ Sample,
+             scales = "free") + # Divide in facets according to location type
+  scale_fill_manual(values=rhiz_colors) +
+    scale_y_continuous(label=comma)+
+  theme(strip.text.x = element_blank(),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank())+
+  labs(title ="San Juan Volador")
+
+rhiz_abs_plot_UMA<-ggplot(rhiz_abs_UMA, aes(x=TipoDeMuestra, y=Abundancia, fill = Genero)) +
+  geom_bar(aes(), stat="identity", position="stack") +
+  labs(x= "Muestras") + # Change labels to be in spanish
+  facet_wrap(Localidad ~ Sample,
+             scales = "free") + # Divide in facets according to location type
+  scale_fill_manual(values=rhiz_colors) +
+  scale_y_continuous(label=comma)+
+  theme(strip.text.x = element_blank(),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank())+
+  labs(title ="Monte Oscuro")
+
+rhiz_abs_plot<-ggarrange(rhiz_abs_plot_PobNat, rhiz_abs_plot_UMA, ncol = 1, common.legend = TRUE, legend = "right")
+rhiz_abs_plot<-annotate_figure(rhiz_abs_plot,
+                left = text_grob("Abundancia absoluta", rot = 90))
+
+ggsave("rhiz_abs_SRC.png", plot = rhiz_abs_plot, width = 6.5, height = 3.65, units = "in", dpi = 400)
+ rhiz_abs_plot
+```
+
+## Make absolute abundance of *Rhizobium* reads plot
+
+Maje the object
+```{r, warning=FALSE, message=FALSE}
+rhizobium_abs<-subset_taxa(SRC, Genero == "Rhizobium")
+rhizobium_abs_gen<-tax_glom(rhizobium_abs, "Genero")
+rhizobium_abs_df<-psmelt(rhizobium_abs)
+rhizobium_abs_df <- rhizobium_abs_df %>%
+  select(Sample, Abundance, TipoDeMuestra, Localidad, Genero) %>% # Make smaller object with only some columns
+  group_by(Sample,Genero) %>%
+  summarize(Abundancia = sum(Abundance), Numeros = format(Abundancia, big.mark=","), TipoDeMuestra, Localidad) %>%# Make smaller object with only abundance sum per sample
+  unique()
+rhizobium_abs_df$TipoDeMuestra<- factor(rhizobium_abs_df$TipoDeMuestra, levels = c("Coraloide", "Suelo", "Raiz"))
+```
+Make the plot
+```{r}
+rhizobium_abs_plot<- ggplot(rhizobium_abs_df, aes(x=TipoDeMuestra, y=Abundancia, fill = Genero)) +
+  geom_bar(aes(), stat="identity", position="stack") +
+  scale_fill_manual(values= "#8e4896ff") +
+  labs(x= "Muestras", y = "Abundancia absoluta") + # Change labels to be in spanish
+  facet_wrap(~Localidad, scales = "free") + # Divide in facets according to location type
+  theme(legend.position = "none")+
+  scale_y_continuous(label=comma)+
+  geom_text(aes(label= Numeros), position =  position_dodge(width=0.5), vjust =-0.25, size = 2.5) # Add the abundance number as text over the bars
+
+ggsave("rhizobium_abs_SRC.png", plot = rhizobium_abs_plot, width = 6.5, height = 3.65, units = "in", dpi = 400)
+rhizobium_abs_plot
+```
+
+## Make absolute abundance of *Bacillus* reads plot
+
+Make the object
+```{r, warning=FALSE, message=FALSE}
+bacil_abs<-subset_taxa(SRC, Genero == "Bacillus")
+bacil_abs_gen<-tax_glom(bacil_abs, "Genero")
+bacil_abs_df<-psmelt(bacil_abs)
+bacil_abs_df <- bacil_abs_df %>%
+  select(Sample, Abundance, TipoDeMuestra, Localidad, Genero) %>% # Make smaller object with only some columns
+  group_by(Sample,Genero) %>%
+  summarize(Abundancia = sum(Abundance), Numeros = format(Abundancia, big.mark=","), TipoDeMuestra, Localidad) %>%# Make smaller object with only abundance sum per sample
+  unique()
+bacil_abs_df$TipoDeMuestra<- factor(bacil_abs_df$TipoDeMuestra, levels = c("Coraloide", "Suelo", "Raiz"))
+```
+Make the plot
+```{r}
+bacil_abs_plot<- ggplot(bacil_abs_df, aes(x=TipoDeMuestra, y=Abundancia, fill = Genero)) +
+  geom_bar(aes(), stat="identity", position="stack") +
+  scale_fill_manual(values= "brown") +
+  labs(x= "Muestras", y = "Abundancia absoluta") + # Change labels to be in spanish
+  facet_wrap(~Localidad, scales = "free") + # Divide in facets according to location type
+  theme(legend.position = "none")+
+  scale_y_continuous(label=comma)+
+  geom_text(aes(label= Numeros), position =  position_dodge(width=0.5), vjust =-0.25, size = 2.5) # Add the abundance number as text over the bars
+
+ggsave("bacil_abs_SRC.png", plot = bacil_abs_plot, width = 6.5, height = 3.65, units = "in", dpi = 400)
+bacil_abs_plot
+```
+
+## Save all plots in one PDF
+
+```{r, include==FALSE}
+pdf("results_figures.pdf", width = 6.5, height = 3.65)
+abund_abs_plot
+SRC_rel_phyl_plot
+Zf_36_rel_ab_plot
+SRC_rel_rank_plot
+caulo_abs_plot
+rhiz_abs_plot
+bacil_abs_plot
+dev.off()
+```
+
