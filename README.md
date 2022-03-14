@@ -1,7 +1,9 @@
 UNDER CONSTRUCTION
+
 # Zamia-bacterial-BGCs
 
-This is a description of the pipeline followed for the *Zamia furfuracea* bacterial BGC mining project (2020-2022).
+This is a description of the pipeline followed for the *Zamia furfuracea* bacterial BGC mining project (2020-2022). It is not the exact pipeline followed for the project, but a slightly improved and simplified version of it.
+
 It follows the next seps:
 - Download the sequencing data
 - Organize the files
@@ -151,7 +153,7 @@ mv Zf.biom phyloseq/
 ~~~
 
 Copy the `metadatos.csv` file to `taxonomia_reads/` to be able to use Phyloseq.
-The Phyloseq script can be found in `phyloseq_reads.Rmd` in this repository.
+The Phyloseq script can be found in `phyloseq_reads.md` in this repository.
 
 ## Metagenomics assembly
 
@@ -272,7 +274,8 @@ mkdir taxonomia_mags
 scp <serveradress>/zamia-dic2020/TAXONOMY_MAGS/*bracken_kraken.report ./taxonomia_mags/
 ~~~
 
-In `taxonomia_mags/` use `kraken-biom` to make the `.biom` file that we need to visualize the taxonomy with Phyloseq in R. And move the resulting file to a folder named `phyloseq` inside `taxonomia_mags/`
+In `taxonomia_mags/` use `kraken-biom` to make the `.biom` file that we need to visualize the taxonomy with Phyloseq in R. And move the resulting file to a folder named `phyloseq` inside `taxonomia_mags/`.
+The list of `bracken_kraken.report` only contains the selected MAGs with high quality. 
 ~~~shell
 kraken-biom <listOfMAGsKrakenBrackenReports> --fmt json -o Zf_mags.biom
 
@@ -281,4 +284,237 @@ mv Zf_mags.biom phyloseq/
 ~~~
 
 Copy the `metadatos.csv` file to `taxonomia_mags/` to be able to use Phyloseq.
-The Phyloseq script can be found in `phyloseq_mags.Rmd` in this repository. 
+The Phyloseq script can be found in `phyloseq_mags.Rmd` in this repository.
+
+## BGC Mining
+
+### Download genomes from NCBI
+
+In the [Assembly database](https://www.ncbi.nlm.nih.gov/assembly) of the NCBI search the genera of interest (*Bacillus*, *Peribacillus*, *Rhizobium*, *Bradyrhizobium*, *Phyllobacterium*).
+Apply the required filters:
+- Status: Latest
+- Assmebly level: Complete genome
+- Genomic representation: Complete
+- Exclude: Exclude anomalous
+
+
+Select Download Assemblies, choosing RefSeq as a source.
+
+Move all genomes to a new folder named `zamia-dic2020/genomas/publicos/fasta/` and decompress them:
+~~~shell
+gunzip *
+~~~
+
+Check the number of files before and after the name change:
+~~~shell
+ls | wc -l
+~~~
+
+Change the file names to their accesion numbers:
+~~~shell
+for file in *.fna 
+do
+    name=$(head -n1 $file | cut -d " " -f 1 | cut -c 1 --complement)
+    echo $file $name.fasta
+    mv $file $name.fasta
+done
+~~~
+
+Make a file with the accesion numbers and genome names:
+~~~shell
+head -n1 *.fasta | grep -v "==" | grep ">" > genome_names.txt
+~~~
+
+### Prepare for RAST submition
+
+Edit with Openrefine `genome_names.txt`:
+- It shoud have the following columns: Accessions, Filenames, Species
+- The Filenames column must has the `.fasta` extension
+- It must not have `''`, `()` or `.` 
+- In the Filename column the genus, species and strain are separated with `_` 
+- There are no `_` inside the strain code
+- In the species column the genus, species and strain fields are separated with a space
+- It should be saved as TSV
+- Names of the species in the IdsFile do not have be completely in lowercase (strain codes can be in uppercase)
+
+To change the accession names for the new names using the `genome_names.tsv`:
+~~~shell
+cat genome_names.tsv| while read line ; do old=$(echo $line | cut -d' ' -f1); new=$( echo $line | cut -d' ' -f2) ; mv $old.fasta $new ;done
+~~~
+
+After changing the names, remove the first column of the `genome_names.tsv`, **add the information for the corresponding MAGs** and rename it to `IdsFile`
+
+**Move the corresponding MAGs fastas to `zamia-dic2020/genomas/publicos/fasta/`**
+
+### Annotation with RAST 
+
+#### Submit fastas to RAST:
+
+Pull the myrast docker distribution:
+~~~shell
+docker pull nselem/myrast
+~~~
+
+Enter the myrast docker and sumbit the genomes:
+~~~shell
+docker run -i -t -v $(pwd):/home nselem/myrast /bin/bash
+
+cat IdsFile | while read line; do id=$(echo $line|cut -d' ' -f1); name=$(echo $line|cut -d' ' -f2-5); echo svr_submit_RAST_job -user <username> -passwd <password> -fasta $id -domain Bacteria -bioname "${name}" -genetic_code 11 -gene_caller rast; svr_submit_RAST_job -user <username> -passwd <password> -fasta $id -domain Bacteria -bioname "$name" -genetic_code 11 -gene_caller rast; done
+
+# Wait until it has finished and exit:
+exit 
+~~~
+
+Once the RAST run is finished, copy in a spreadsheet the RAST/Jobs_Overview table: 
+- Keep only the JobIDs in the first column and the species names in the third column
+- Make a second column with the Filename column from the `IdsFile`
+- Make sure the JobId coincides with the appropriate filename
+- Save it as `Rast_ID.tsv`
+
+
+#### Retrieve RAST.gbk
+
+Take back the MAGs fastas to `zamia-dic2020/ensambles_mags`.
+
+Make a new folder named `zamia-dic2020/genomas/analizar/gbks/` and inside it do:
+~~~shell
+mv ../fasta/Rast_ID.tsv .
+
+docker run -i -t -v $(pwd):/home nselem/myrast /bin/bash
+
+cut -f1 Rast_ID.tsv | while read line; do svr_retrieve_RAST_job <username> <password> $line genbank > $line.gbk ; done
+
+# Wait until it has finished and exit:
+exit
+~~~
+
+Change names from JobId to genome name with the Rast_ID.tsv
+~~~shell
+cat Rast_ID.tsv| while read line ; do old=$(echo $line | cut -d' ' -f1); new=$(echo $line | cut -d' ' -f2) ; newgbk=$(echo $new | cut -d'.' -f1); mv $old.gbk $newgbk.gbk ;done
+~~~
+
+#### Retrieve RAST.faa
+
+Make a new folder named `zamia-dic2020/genomas/analizar/aminoa/` and inside it do:
+
+~~~shell
+mv ../gbks/Rast_ID.tsv .
+
+docker run -i -t -v $(pwd):/home nselem/myrast /bin/bash
+
+cut -f1 Rast_ID.tsv | while read line; do svr_retrieve_RAST_job <username> <password> $line amino_acid > $line.faa ; done
+
+# Wait until it has finished and exit:
+exit
+~~~
+Change names from JobId to genome name with the Rast_ID.tsv
+~~~shell
+cat Rast_ID.tsv| while read line ; do old=$(echo $line | cut -d' ' -f1); new=$(echo $line | cut -d' ' -f2) ; newfaa=$(echo $new | cut -d'.' -f1); mv $old.faa $newfaa.faa ;done
+~~~
+
+### Run Antismash
+
+Inside `gbks/` make the next script:
+~~~ shell
+#### run_antismash.sh : Script to run Antismash 6 ####
+
+#!/bin/bash
+
+genome=$1
+prefix=$(echo ${genome} | cut -d'.' -f1)
+
+mkdir -p antismash/output_${prefix}
+
+## If the organism is fungal use --taxon fungi
+## If input is in fasta format use --genefinding-tool=glimmerhmm (for eukaryotic organism) or --genefinding-tool=prodigal (for prokaryotic organism)
+## If input is in gff3 format use --genefinding-gff3
+antismash --output-dir antismash/output_${prefix}/ --genefinding-tool=none ${genome}
+~~~
+
+Commands to run run_antismash.sh 
+
+~~~shell
+conda activate antismash
+
+for file in *.gbk
+do
+    sh run_antismash.sh $file
+done
+~~~
+
+### Run BiG-SCAPE
+
+Make a folder for all the BiG-SCAPE analysis
+~~~shell
+mkdir -p zamia-dic2020/bigscape/bgcs_gbks
+~~~
+
+All gbks generated by antismash should have a name with the pattern '*region*.gbk', if not, use an appropriate pattern
+Count the region gbks with:
+~~~shell
+ls output*/*region*gbk | wc -l
+~~~
+
+Add the name of the genome to the bgc filenames so they do not overwrite if names are duplicates:
+~~~shell
+ls -1 output*/*region*gbk | while read line; do dir=$(echo $line | cut -d'/' -f1); file=$(echo $line | cut -d'/' -f2); for directory in $dir; do cd $directory; pwd ; newfile=$(echo $dir-$file |cut -d'_' -f1 --complement); echo $file $newfile ; mv $file $newfile ; cd .. ; done; done
+~~~
+
+Copy all antismash-generated gbks to the `bgcs_gbks/`
+~~~shell
+scp antismash/output_*/*region*.gbk bigscape/bgcs_gbks/ 
+~~~
+
+Make sure the count is the same as before:
+~~~shell
+ls bigscape/bgcs_gbks/*region*gbk | wc -l
+~~~
+
+Go to the bigscape folder
+~~~shell
+cd bigscape
+~~~
+
+We need the `--hybrids-off` flag to avoid repeated BGCs in different Classes (because there are BGCs that may fit in different classes)
+Optional: The `--mix` flag is to make an extra analysis with all the BGCs together (i.e. not separated in classes)
+Optional: The `--cutoffs` flag is to make the entire analysis several times with different cuttof values (the default is 0.3)
+~~~shell
+run_bigscape bgcs_gbks/ output_<date> --hybrids-off --mix --cutoffs 0.1 0.2 0.3 0.5 0.7 0.9
+~~~
+
+When it finishes:
+~~~shell
+firefox output_<date>/index.html
+~~~
+
+### Run Corason
+
+According to the BiG-SCAPE results we can choose a BGC of interest and choose one of the genomes where it is found.
+Make a folder for the CORASON analyses 
+
+~~~shell
+mkdir zamia-dic2020/corason
+cd corason
+
+firefox ../antismash/output_<genome_of_interest>/index.html
+~~~
+
+Click on region (BGC) of interest to open its complete BGC view
+Choose a gene to make the Corason from: Most likely the core gene, or one of the core genes
+Click on it and on AA sequence: Copy to clipboard
+Open a new empty plain text editor and add a line with the following info:
+- `>` 
+- cds gene code (as in the Gene details box withtin antismash web)
+- additional gene name if there is one
+- region name (as shown in antismash web)
+- additional bgc name if there is one
+- name of genome of origin
+Then paste the sequence and save it in the corason folder with `.fasta` extension
+
+If the genomes are in gbk format you need the `-g` flag
+~~~shell
+run_corason core_gene.fasta path/my_genomes/gbks/ path/my_genomes/gbks/genome_of_interest -g
+~~~
+
+Check the .BLAST file in the corason output to see in the bitscores are on a very broad range, if they are choose an appropriate cutoff to maintain only the highest bitscores
+Re-run corason with the same command but adding the bit score cutoff with the flag `-b <cutoff_value>`
