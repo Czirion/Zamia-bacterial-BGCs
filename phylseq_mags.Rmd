@@ -1,0 +1,176 @@
+---
+title: "phyloseq_mags"
+author: "Clau Zirion"
+date: "14/3/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, root.dir = "/home/claudia/Documentos/genomas/zamia-dic2020")
+```
+
+## Use Phyloseq to make abundance plots for MAGs's contigs
+
+This script is for making plots that show the relative abundance of bacterial contigs from the MAGs contructed for the Zamia-bacterial-BGCs project (2020-2022).
+
+### Load the libraries
+```{r, warning = FALSE, message=FALSE}
+library(phyloseq)
+library(ggplot2)
+library(tidyverse)
+library(scales)
+library(RColorBrewer)
+library(ggpubr)
+```
+
+### Make the Phyloseq object
+
+```{r, warning=FALSE, message=FALSE}
+setwd ("/home/claudia/Documentos/genomas/zamia-dic2020/vamb/taxonomy/buenos/")
+
+imp.mags<-import_biom("mags.biom")
+imp.mags@tax_table@.Data<- substring(imp.mags@tax_table@.Data, 4) #remove "k__" from otus names
+colnames(imp.mags@tax_table@.Data)<- c("Reino", "Filo", "Clase", "Orden", "Familia", "Genero", "Especie") #change name of taxonomy ranks
+
+metadatos<-read.csv("metadatos.csv")
+row.names(metadatos) <- metadatos$MagID
+otu<- otu_table(imp.mags@otu_table@.Data, taxa_are_rows = TRUE) 
+colnames(otu) <- c("145", "6277", "6425", "16285", "16316" ,"1908",  "2170",  "3323",  "4728", "8397", "16748", "3164",  "3288", "3355", "491", "5982", "803", "223",  "2313", "43981", "45110", "46293", "776", "1193", "174", "19605", "19728", "20225", "21169", "36527", "22789")
+tax<- tax_table(imp.mags@tax_table@.Data)
+metad<-sample_data(metadatos)
+
+mags<-phyloseq(otu, tax, metad)
+mags@tax_table@.Data[,7]<-paste(mags@tax_table@.Data[,6], mags@tax_table@.Data[,7], sep= "_") # Make the species column has the hole species name, and not just the epithet
+```
+
+## Make the absolute abundance plot for the *Nostoc* MAG
+
+Make the object
+```{r, warning=FALSE, message=FALSE}
+nos<-"145"
+nostoc<- prune_samples(nos, mags) 
+nostoc<- filter_taxa(nostoc, function (x) x!=0, TRUE)
+nostoc<- transform_sample_counts(nostoc, function (x) x/ sum(x))
+nostoc_df<- psmelt(nostoc)
+nostoc_df$Especie<-as.factor(nostoc_df$Especie)
+nostoc_df<- nostoc_df %>%
+  unite(Nombre, Muestra, MagID, sep = "_", remove = FALSE)
+```
+
+Make the plot
+```{r, warning=FALSE, message=FALSE}
+nostoc_colors<- colorRampPalette(brewer.pal(8,"Dark2")) (length(levels(nostoc_df$Especie))) 
+nostoc_mag_plot<-ggplot(nostoc_df, aes(x=Nombre, y=Abundance, fill=Especie)) +
+  geom_bar(aes(), stat="identity", position="stack") +
+  scale_fill_manual(values=nostoc_colors) + 
+  labs(x= "", y = "Abundancia relativa")
+
+ggsave("nostoc_mag.png", plot = nostoc_mag_plot,  width = 5, height = 4, units = "in", dpi = 400)
+nostoc_mag_plot
+```
+
+## Make the absolute abundance plot for the *Bacillus* MAGs
+
+Make the object
+```{r, warning=FALSE, message=FALSE}
+bac<-c ("4728", "3164", "36527")
+bacillus<- prune_samples(bac, mags) 
+bacillus<- filter_taxa(bacillus, function (x) sum(x)!=0, TRUE)
+bacillus<- transform_sample_counts(bacillus, function (x) x/ sum(x))
+bacillus_df<- psmelt(bacillus)
+bacillus_df$Especie<-as.factor(bacillus_df$Especie)
+bacillus_df<- bacillus_df %>%
+  unite(Nombre, Muestra, MagID, sep = "_", remove = FALSE)
+```
+
+Make the plot
+```{r, warning=FALSE, message=FALSE}
+bacillus_colors<- colorRampPalette(brewer.pal(8,"Dark2")) (length(levels(bacillus_df$Especie))) 
+bacillus_mag_plot<-ggplot(bacillus_df, aes(x=Nombre, y=Abundance, fill=Especie)) +
+  geom_bar(aes(), stat="identity", position="stack") +
+  scale_fill_manual(values=bacillus_colors) + 
+  labs(x= "", y = "Abundancia relativa")
+
+ggsave("bacillus_mag.png", plot = bacillus_mag_plot,  width = 6.5, height = 3.65, units = "in", dpi = 400)
+bacillus_mag_plot
+```
+
+## Make the absolute abundance plot for the *Phyllobacterium* MAGs
+
+Make the object
+```{r, warning=FALSE, message=FALSE}
+phylob<-c ("6425", "2170", "3288", "223", "1193")
+phyllobacterium<- prune_samples(phylob, mags) 
+phyllobacterium<- filter_taxa(phyllobacterium, function (x) sum(x)!=0, TRUE)
+phyllobacterium<- transform_sample_counts(phyllobacterium, function (x) x/ sum(x))
+phyllobacterium_df<- psmelt(phyllobacterium)
+phyllobacterium_df$Especie<-as.factor(phyllobacterium_df$Especie)
+phyllobacterium_df<- phyllobacterium_df %>%
+  unite(Nombre, Muestra, MagID, sep = "_", remove = FALSE)
+```
+
+Make the plot
+```{r, warning=FALSE, message=FALSE}
+phyllobacterium_colors<- colorRampPalette(brewer.pal(8,"Dark2")) (length(levels(phyllobacterium_df$Especie))) 
+phyllobacterium_mag_plot<-ggplot(phyllobacterium_df, aes(x=Nombre, y=Abundance, fill=Especie)) +
+  geom_bar(aes(), stat="identity", position="stack") +
+  scale_fill_manual(values=phyllobacterium_colors) + 
+  labs(x= "", y = "Abundancia relativa")
+
+ggsave("phyllobacterium_mag.png", plot = phyllobacterium_mag_plot,  width = 6.5, height = 3.65, units = "in", dpi = 400)
+phyllobacterium_mag_plot
+```
+
+## Make the absolute abundance plot for the *Bradyrhizobium* MAGs
+
+Make the object
+```{r, warning=FALSE, message=FALSE}
+brad<-c ("6277", "1908", "3355", "776", "19728")
+brady<- prune_samples(brad, mags) 
+brady<- filter_taxa(brady, function (x) sum(x)!=0, TRUE)
+brady<- transform_sample_counts(brady, function (x) x/ sum(x))
+brady_df<- psmelt(brady)
+brady_df$Especie<-as.factor(brady_df$Especie)
+brady_df<- brady_df %>%
+  unite(Nombre, Muestra, MagID, sep = "_", remove = FALSE)
+```
+
+Make the plot
+```{r, warning=FALSE, message=FALSE}
+brady_colors<-brewer.pal(3,"Dark2")
+brady_mag_plot<-ggplot(brady_df, aes(x=Nombre, y=Abundance, fill=Especie)) +
+  geom_bar(aes(), stat="identity", position="stack") +
+  scale_fill_manual(values=brady_colors) + 
+  labs(x= "", y = "Abundancia relativa")
+
+ggsave("brady_mag.png", plot = brady_mag_plot,  width = 6.5, height = 3.65, units = "in", dpi = 400)
+brady_mag_plot
+```
+
+## Make the absolute abundance plot for the *Rhizobium* MAGs
+
+Make the object
+```{r, warning=FALSE, message=FALSE}
+rhiz<-c ("16748")
+rhizobium<- prune_samples(rhiz, mags) 
+rhizobium<- filter_taxa(rhizobium, function (x) sum(x)!=0, TRUE)
+rhizobium<- transform_sample_counts(rhizobium, function (x) x/ sum(x))
+rhizobium_df<- psmelt(rhizobium)
+rhizobium_df$Especie<-as.factor(rhizobium_df$Especie)
+rhizobium_df<- rhizobium_df %>%
+  unite(Nombre, Muestra, MagID, sep = "_", remove = FALSE)
+
+```
+
+Make the plot
+```{r, warning=FALSE, message=FALSE}
+rhizobium_colors<-colorRampPalette(brewer.pal(8,"Dark2")) (length(levels(rhizobium_df$Especie))) 
+rhizobium_mag_plot<-ggplot(rhizobium_df, aes(x=Nombre, y=Abundance, fill=Especie)) +
+  geom_bar(aes(), stat="identity", position="stack") +
+  scale_fill_manual(values=rhizobium_colors) + 
+  labs(x= "", y = "Abundancia relativa")
+
+ggsave("rhizobium_mag.png", plot = rhizobium_mag_plot,width = 4 , height = 4,  units = "in", dpi = 400)
+rhizobium_mag_plot
+```
+
