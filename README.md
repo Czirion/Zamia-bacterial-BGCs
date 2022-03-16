@@ -152,7 +152,7 @@ mkdir phyloseq/
 mv Zf.biom phyloseq/
 ~~~
 
-Copy the `metadatos.csv` file to `taxonomia_reads/` to be able to use Phyloseq. The Phyloseq script can be found in `phyloseq_reads.md` in this repository.
+Copy the `metadatos.csv` file to `taxonomia_reads/` to be able to use Phyloseq. The Phyloseq script can be found in `phyloseq_reads.Rmd` in this repository. To see a Knited version of it download `phyloseq_reads.html` and open it with a browser. 
 
 ## Metagenomics assembly
 
@@ -280,7 +280,7 @@ mv Zf_mags.biom phyloseq/
 ~~~
 (The list of `bracken_kraken.report` only contains the selected MAGs with high quality)
 
-Copy the `metadatos.csv` file to `taxonomia_mags/` to be able to use Phyloseq. The Phyloseq script can be found in `phyloseq_mags.Rmd` in this repository.
+Copy the `metadatos.csv` file to `taxonomia_mags/` to be able to use Phyloseq. The Phyloseq script can be found in `phyloseq_mags.Rmd` in this repository. To see a Knited version of it download `phyloseq_mags.html` and open it with a browser. 
 
 ## BGC Mining
 
