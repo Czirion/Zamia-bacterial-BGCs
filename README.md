@@ -24,9 +24,14 @@ It follows the next seps:
 - Taxonomic assignment of the MAGs's contigs
 	- Run Kraken and Bracken
 	- Make input for Phyloseq (and Phyloseq script)
-- BGC Mining
+- Genomic data base construction
 	- Download genomes from NCBI
+	- Clean file list and prepare RAST submition
 	- Annotation with RAST
+- Phylogenetic tree
+	- Run Orthofinder
+	- Make the tree with Ggtree
+- BGC Mining
 	- Run AntiSMASH
 	- Run BiG-SCAPE
 	- Run CORASON
@@ -282,7 +287,7 @@ mv Zf_mags.biom phyloseq/
 
 Copy the `metadatos.csv` file to `taxonomia_mags/` to be able to use Phyloseq. The Phyloseq script can be found in `phyloseq_mags.Rmd` in this repository. To see a Knited version of it download `phyloseq_mags.html` and open it with a browser. 
 
-## BGC Mining
+## Genomic data base construction
 
 For each of the genera of interest for which MAGs were obtained (*Bacillus*, *Peribacillus*, *Rhizobium*, *Bradyrhizobium*, *Phyllobacterium*) follow the next steps.
 
@@ -325,9 +330,7 @@ Make a file with the accesion numbers and genome names:
 head -n1 *.fasta | grep -v "==" | grep ">" > genome_names.txt
 ~~~
 
-### Annotation with RAST 
-
-#### Prepare for RAST submition
+### Clean the file list and prepare RAST submition
 
 Edit with Openrefine `genome_names.txt`:
 - It shoud have the following columns: Accessions, Filenames, Species
@@ -347,6 +350,8 @@ cat genome_names.tsv| while read line ; do old=$(echo $line | cut -d' ' -f1); ne
 After changing the names, remove the first column of the `genome_names.tsv`, **add the information for the corresponding MAGs** and rename it to `IdsFile`.
 
 Move the corresponding MAGs fastas to `zamia-dic2020/genomas/publicos/fasta/`.
+
+### Anotation with RAST
 
 #### Submit fastas to RAST
 
@@ -411,6 +416,22 @@ Change names from JobId to genome name with the Rast_ID.tsv:
 ~~~shell
 cat Rast_ID.tsv| while read line ; do old=$(echo $line | cut -d' ' -f1); new=$(echo $line | cut -d' ' -f2) ; newfaa=$(echo $new | cut -d'.' -f1); mv $old.faa $newfaa.faa ;done
 ~~~
+
+## Phylogenetic tree
+
+### Run Orthofinder
+
+Upload to the server a folder called `<genus>_faa/` with all of the genomes in the aminoacid `.faa` format. It must include, the constructed MAGs, the related genomes and an outgroup (a genome from one of the downloaded genera different to de genus of interest).
+
+Put the script `orthofinder.sh` in the directory above `<genus>_faa/` and run it in the server.
+
+### Make the tree with Ggtree
+
+Download the results folder `Species_Tree/` to the local machine inside a directory called `zamia-dic2020/orthofinder/`.
+
+Inside that folder add the `metadata.csv` and run the script `ggtree.R`. To see a Knited version of it download `ggtree.html` and open it with a browser. 
+
+## BGC Mining
 
 ### Run Antismash
 
