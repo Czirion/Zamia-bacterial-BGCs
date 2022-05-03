@@ -12,7 +12,7 @@ It follows the next seps:
 - Taxonomic assignment of the reads
 	- Run Kraken and Bracken
 	- Run Krona
-	- Make input for Phyloseq (and Phyloseq script)
+	- Run Phyloseq in R
 - Metagenomic assembly
 	- Run Metaspades
 	- Run MetaQuast
@@ -23,31 +23,31 @@ It follows the next seps:
 	- Run CheckM
 - Taxonomic assignment of the MAGs's contigs
 	- Run Kraken and Bracken
-	- Make input for Phyloseq (and Phyloseq script)
+	- Run Phyloseq in R
 - Genomic data base construction
 	- Download genomes from NCBI
 	- Clean file list and prepare RAST submition
 	- Annotation with RAST
 - Phylogenetic tree
 	- Run Orthofinder
-	- Make the tree with Ggtree
+	- Run Ggtree in R
 - BGC Mining
 	- Run AntiSMASH
 	- Run BiG-SCAPE
+		- Make heatmap in R
 	- Run CORASON
-
-After its creation the working directory from where the commands will be run is `zamia-dic2020/` so the used paths will be absolute from there. This is true for the local machine and the server.
 
 The software used is listed in `software.md` in this repository.
 
 ## Download the sequencing data
 
-Create the necessary directories to store the data:
+In your local machine create the necessary directories to store the raw data and quality analysis files:
 ~~~shell
 mkdir -p zamia-dic2020/raw_data/FastQC
+cd zamia-dic2020/raw_data/
 ~~~
 
-Enter the server with the data:
+Enter the server of the sequencing service that has the data stored:
 ~~~shell
 sftp -------@-----.--------.--------.--------.--------.--
 (pasword: -------)
@@ -79,7 +79,7 @@ mv *.html FastQC/
 mv *.zip FastQC/
 ~~~
 
-Make directories in the server, inside the server:
+Make directories for each sample in the server (from now on "the server" will reference the computer with high power that you will use), inside the server:
 ~~~shell
 for i in {36..43}
 do
@@ -112,7 +112,7 @@ done
 
 ## Create the metadata spreadsheet
 
-The metadata file is located in this repository with the name `metadatos.csv`.
+Type the metadata into a spreadsheet and save it as `csv`. The metadata file is located in this repository with the name `metadatos.csv`.
 
 ## Taxonomic assignment of all the reads
 
@@ -123,11 +123,10 @@ Inside each sample folder in the server (example for sample Zf_36) run Kraken an
 sh kraken_reads.sh *R1*.fastq *R2*.fastq Zf_36/
 ~~~
 
-Once you have the Kraken and Bracken output copy the bracken_kraken reports to the local machine, in the local machine:
+Once you have the Kraken and Bracken output copy the `bracken_kraken.report`s to the local machine, in the local machine:
 ~~~shell
-mkdir taxonomia_reads
-cd taxonomia_reads
-scp <serveradress>/zamia-dic2020/Zf*/TAXONOMY/KRAKEN/*bracken_kraken.report .
+mkdir zamia-dic2020/taxonomia_reads/
+scp <serveradress>/zamia-dic2020/Zf*/TAXONOMY/KRAKEN/*bracken_kraken.report zamia-dic2020/taxonomia_reads/
 ~~~
 
 ### Run Krona
@@ -149,7 +148,7 @@ Visualize the results in Firefox.
 
 ### Make input for Phyloseq
 
-In `taxonomia_reads/` use `kraken-biom` to make the `.biom` file that we need to visualize the taxonomy with Phyloseq in R. And move the resulting file to a folder named `phyloseq`:
+In `taxonomia_reads/` use `kraken-biom` to make the `.biom` file that we need to visualize the taxonomy with Phyloseq in R. And move the resulting file to a folder named `phyloseq/`:
 ~~~shell
 kraken-biom Zf_36_kraken_bracken.report Zf_37_kraken_bracken.report Zf_38_kraken_bracken.report Zf_39_kraken_bracken.report Zf_40_kraken_bracken.report Zf_41_kraken_bracken.report Zf_42_kraken_bracken.report Zf_43_kraken_bracken.report --fmt json -o Zf.biom
 
@@ -157,7 +156,7 @@ mkdir phyloseq/
 mv Zf.biom phyloseq/
 ~~~
 
-Copy the `metadatos.csv` file to `taxonomia_reads/` to be able to use Phyloseq. The Phyloseq script can be found in `phyloseq_reads.Rmd` in this repository. To see a Knited version of it download `phyloseq_reads.html` and open it with a browser. 
+Copy the `metadatos.csv` file to `taxonomia_reads/` to be able to use Phyloseq. The Phyloseq script can be found in `phyloseq_reads.Rmd` in this repository. To see a Knited version of it download (click in the file name, click download, and click Ctrl+S) `phyloseq_reads.html` and open it with a browser. 
 
 ## Metagenomics assembly
 
@@ -170,8 +169,8 @@ sh metaspades.sh *R1*.fastq *R2*.fastq Zf_36/
 
 Once you have the metaSPAdes output go to the local machine to copy the scaffolds files there:
 ~~~shell
-mkdir ensambles_metag/
-scp <serveradress>/zamia-dic2020/Zf*/ASSMBLIES/*.fasta ./ensambles_metag/
+mkdir zamia-dic2020/ensambles_metag/
+scp <serveradress>/zamia-dic2020/Zf*/ASSMBLIES/*.fasta zamia-dic2020/ensambles_metag/
 ~~~
 
 ### Run MetaQuast
@@ -182,7 +181,7 @@ mkdir ensambles_metag/metaQUAST
 metaquast.py -o metaQUAST --space-efficient --split-scaffolds Zf_36_metaspades_scaffolds.fasta Zf_37_metaspades_contigs.fasta Zf_37_metaspades_scaffolds.fasta Zf_38_metaspades_contigs.fasta Zf_38_metaspades_scaffolds.fasta Zf_39_metaspades_contigs.fasta Zf_39_metaspades_scaffolds.fasta Zf_40_metaspades_contigs.fasta Zf_40_metaspades_scaffolds.fasta Zf_41_metaspades_contigs.fasta Zf_41_metaspades_scaffolds.fasta Zf_42_metaspades_contigs.fasta Zf_42_metaspades_scaffolds.fasta Zf_43_metaspades_contigs.fasta Zf_43_metaspades_scaffolds.fasta
 ~~~
 
-View the results with Firefox and erase the heavy files about the downloaded references and corrected input.
+View the results with a browser and erase the heavy files about the downloaded references and corrected input.
 
 ## Binning
 
