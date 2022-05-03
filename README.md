@@ -192,17 +192,13 @@ Inside each sample folder in the server (example for sample Zf_36), run minimap:
 sh minimap.sh ASSEMBLIES/Zf_36_metaspades_scaffolds.fasta *R1*.fastq *R2*.fastq Zf_36
 ~~~
 
-### Copy the alignment files to the local machine
-
-In the local machine:
+Copy the alignment files to the local machine, in the local machine:
 ~~~shell
-mkdir vamb/
-scp <serveradress>/zamia-dic2020/Zf*/*.bam ./vamb/
+mkdir zamia-dic2020/vamb/
+scp <serveradress>/zamia-dic2020/Zf*/*.bam zamia-dic2020/vamb/
 ~~~
 
-### Move the raw data file to a single folder
-
-In the server: 
+Move the raw data file to a single folder, in the server: 
 ~~~shell
 mkdir raw_data/
 mv Zf*/*.fastq* raw_data/
@@ -232,15 +228,15 @@ do
 	cd ../..
 done
 
-mkdir ensambles_mags/
-scp vamb/Zf*/bins/*.fna ensambles_mags/
+mkdir zamia-dic2020/ensambles_mags/
+scp vamb/Zf*/bins/*.fna zamia-dic2020/ensambles_mags/
 ~~~
 
 ### Run Quast
 
 In the local machine:
 ~~~shell
-cd ensambles_mags/
+cd zamia-dic2020/ensambles_mags/
 quast.py -o quast --space-efficient <listOfMAGsFiles>
 ~~~
 
@@ -267,22 +263,22 @@ Put the `kraken_mags.sh` script (found in this repository) in `zamia-dic2020/` i
 sh kraken_mags.sh
 ~~~
 
-### Make input for Phyloseq
+### Run Phyloseq in R
 
-Once you have the Kraken and Bracken output go to the local machine to copy the bracken_kraken reports there:
+Once you have the Kraken and Bracken output go to the local machine to copy the `bracken_kraken.report`s there:
 ~~~shell
-mkdir taxonomia_mags
+mkdir zamia-dic2020/taxonomia_mags/
 scp <serveradress>/zamia-dic2020/TAXONOMY_MAGS/*bracken_kraken.report ./taxonomia_mags/
 ~~~
 
-In `taxonomia_mags/` use `kraken-biom` to make the `.biom` file that we need to visualize the taxonomy with Phyloseq in R. And move the resulting file to a folder named `phyloseq` inside `taxonomia_mags/`:
+In `taxonomia_mags/` use `kraken-biom` to make the `.biom` file that we need to visualize the taxonomy with Phyloseq in R. And move the resulting file to a folder named `phyloseq/` inside `taxonomia_mags/`:
 ~~~shell
 kraken-biom <listOfMAGsKrakenBrackenReports> --fmt json -o Zf_mags.biom
 
 mkdir phyloseq/
 mv Zf_mags.biom phyloseq/
 ~~~
-(The list of `bracken_kraken.report` only contains the selected MAGs with high quality)
+(The list of `bracken_kraken.report`s only contains the selected MAGs with high quality)
 
 Copy the `metadatos.csv` file to `taxonomia_mags/` to be able to use Phyloseq. The Phyloseq script can be found in `phyloseq_mags.Rmd` in this repository. To see a Knited version of it download `phyloseq_mags.html` and open it with a browser. 
 
@@ -306,6 +302,9 @@ Select Download Assemblies, choosing RefSeq as a source.
 Move all genomes to a new folder named `zamia-dic2020/genomas/publicos/fasta/`.
 And decompress them:
 ~~~shell
+mkdir -p zamia-dic2020/genomas/publicos/fasta/
+mv Downloads/ncbi-assemblies-fastas.zip zamia-dic2020/genomas/publicos/fasta/
+cd zamia-dic2020/genomas/publicos/fasta/
 gunzip *
 ~~~
 
@@ -331,15 +330,15 @@ head -n1 *.fasta | grep -v "==" | grep ">" > genome_names.txt
 
 ### Clean the file list and prepare RAST submition
 
-Edit with Openrefine `genome_names.txt`:
+Edit with OpenRefine `genome_names.txt`:
 - It shoud have the following columns: Accessions, Filenames, Species
-- The Filenames column must has the `.fasta` extension
-- It must not have `''`, `()` or `.` 
+- The Filenames column must have the `.fasta` extension
+- The filenames must not have `''`, `()` or `.` symbols
 - In the Filename column the genus, species and strain are separated with `_` 
 - There are no `_` inside the strain code
 - In the species column the genus, species and strain fields are separated with a space
 - It should be saved as TSV
-- Names of the species in the IdsFile do not have be completely in lowercase (strain codes can be in uppercase)
+- Names of the species do not have be completely in lowercase (strain codes can be in uppercase)
 
 To change the accession names for the new names using the `genome_names.tsv`:
 ~~~shell
@@ -354,7 +353,7 @@ Move the corresponding MAGs fastas to `zamia-dic2020/genomas/publicos/fasta/`.
 
 #### Submit fastas to RAST
 
-Pull the myrast docker distribution:
+Pull the `myrast` docker distribution:
 ~~~shell
 docker pull nselem/myrast
 ~~~
@@ -380,8 +379,10 @@ Once the RAST run is finished, copy in a spreadsheet the RAST/Jobs_Overview tabl
 
 Take back the MAGs fastas to `zamia-dic2020/ensambles_mags`.
 
-Make a new folder named `zamia-dic2020/genomas/analizar/gbks/` and inside it do:
+Make a new folder named `zamia-dic2020/genomas/analizar/gbks/` and run docker to retrieve the `gbk` files:
 ~~~shell
+mkdir -p zamia-dic2020/genomas/analizar/gbks/
+cd zamia-dic2020/genomas/analizar/gbks/
 mv ../fasta/Rast_ID.tsv .
 
 docker run -i -t -v $(pwd):/home nselem/myrast /bin/bash
@@ -399,7 +400,7 @@ cat Rast_ID.tsv| while read line ; do old=$(echo $line | cut -d' ' -f1); new=$(e
 
 #### Retrieve RAST.faa
 
-Make a new folder named `zamia-dic2020/genomas/analizar/aminoa/` and inside it do:
+Make a new folder named `zamia-dic2020/genomas/analizar/aminoa/` and run docker to retrieve the `faa` files:
 ~~~shell
 mv ../gbks/Rast_ID.tsv .
 
