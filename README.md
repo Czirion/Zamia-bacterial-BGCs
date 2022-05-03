@@ -421,11 +421,11 @@ cat Rast_ID.tsv| while read line ; do old=$(echo $line | cut -d' ' -f1); new=$(e
 
 ### Run Orthofinder
 
-Upload to the server a folder called `<genus>_faa/` with all of the genomes in the aminoacid `.faa` format. It must include, the constructed MAGs, the related genomes and an outgroup (a genome from one of the downloaded genera different to de genus of interest).
+For each genus of interest upload to the server a folder called `orthofinder/<genus>_faa/` with all of the genomes in the aminoacid `.faa` format. It must include, the constructed MAGs, the related genomes and an outgroup (a genome from one of the downloaded genera different to de genus of interest).
 
 Put the script `orthofinder.sh` in the directory above `<genus>_faa/` and run it in the server.
 
-### Make the tree with Ggtree
+### Run Ggtree in R
 
 Download the results folder `Species_Tree/` to the local machine inside a directory called `zamia-dic2020/orthofinder/`.
 
