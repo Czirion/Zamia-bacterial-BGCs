@@ -1,0 +1,75 @@
+---
+title: "Ggtree"
+author: "Clau Zirion"
+date: '2022-05-09'
+output: html_document
+---
+
+## Make a phylogeny with metadata using Ggtree
+
+This script is to make a phylogeny from the Orthofinder results with the Ggtree package (example using the **Bradyrhizobium** data) .
+
+### Load the libraries
+
+```{r, message=FALSE}
+library(tidyverse)
+library(ggtree)
+library(ape)
+library(RColorBrewer)
+```
+
+### Make the tree object
+
+
+```{r, message=FALSE}
+setwd("~/Documentos/genomas/zamia-dic2020/orthofinder/bradyrhizobium/Results_Jul07/Species_Tree/")
+tree<-read.tree("SpeciesTree_rooted.txt") #Import tree
+tree_reroot<-root(tree, outgroup = "R_leguminosarum_viciae_BIHB1148")
+reduced.tree<-drop.tip(tree_reroot, "R_leguminosarum_viciae_BIHB1148") #Remove outgroup because its branch is too long
+reduced.tree$node.label<-as.numeric(reduced.tree$node.label) #Convert to numeric to be able to round them
+reduced.tree$node.label<-round(reduced.tree$node.label, digits=1)#round them to only one digit
+reduced.tree$node.label<-replace(reduced.tree$node.label,  reduced.tree$node.label==1, "") #Remove all support values (saved in node.label) equal to 1 to have a cleaner tree
+reduced.tree$tip.label <- str_replace_all(reduced.tree$tip.label, pattern = "_", replacement = " ") #Remove _ to have prettier names
+
+```
+
+### Add the metadata
+
+```{r, message=FALSE}
+setwd("~/Documentos/genomas/zamia-dic2020/orthofinder/bradyrhizobium/Results_Jul07/Species_Tree/")
+metadata<-read_csv("metadata.csv")#Read medatada
+metadata<-select(metadata, Species, Habitat)#Remain only with Species and Habitat rows
+metadata$Species <- str_replace_all(metadata$Species, pattern = "[.]", replacement = "") #Remove dots from species names
+metadata$Species <- str_replace_all(metadata$Species, pattern = "_", replacement = " ") #Remove _ from species names
+metadata$Habitat<-factor(metadata$Habitat, levels = c ("Coralloid", "Root", "Root nodule", "Root tumor", "Stem nodule", "Insect gut", "Soil"))
+levels(metadata$Habitat)<-c("Coraloide", "Raiz", "Nodulo de raiz", "Tumor de raiz", "Nodulo de tallo", "Intestino de insecto", "Suelo")
+metadata<-metadata%>%
+  filter(Species %in% reduced.tree$tip.label) #Remain in the metadata only with the species that are in the reduced tree
+metadata$Habitat<-droplevels(metadata$Habitat) #Remove levels corresponding to the removed species
+HabitatCols<- brewer.pal(length(levels(metadata$Habitat)), "BrBG") #Make color vector for the Habitat levels
+
+
+```
+
+### Plot
+
+```{r}
+p1<- ggtree(reduced.tree) %<+% metadata + #Plot the tree with metadata included
+  geom_tiplab(align = TRUE, offset = 0.01, size= 3.5)+ #Display and make the species names labels aligned, slightly separated from branches and control size
+  geom_nodelab(hjust=1.5,nudge_y = 0.5, size=3)+ # Display support values, adjust position and size
+  geom_treescale(x=0, y=50, width=0.1, fontsize = 3.5)+ #Display branch length scale and adjust position and size
+  xlim(0,0.4) #Make more horizontal space to fit the species labels complete
+p2<- p1 + #Use the first plot object to add a layer with habitat metadata
+  geom_tippoint(aes(color= Habitat), shape=15, size=3.5)+ #Add color to branch tips to represent Habitat. Shape 15 is square
+  scale_color_manual(values= HabitatCols) #Make the colors be the ones in the color vector we made
+p2
+```
+
+The plot only shows some support values because all of the support equal to 1 are not shown. 
+
+The image is a little bit tight, but in the saved image the dimensions are specified and the image is better.
+Save the image:
+```{r}
+ggsave("bradyrhizobium_filogenia.png", plot = p2, width = 6.5, height = 6.5, units = "in", dpi = 400) #Save image
+```
+
