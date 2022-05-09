@@ -429,7 +429,9 @@ Put the script `orthofinder.sh` in the directory above `<genus>_faa/` and run it
 
 Download the results folder `Species_Tree/` to the local machine inside a directory called `zamia-dic2020/orthofinder/`.
 
-Inside that folder add the `metadata.csv` and run the script `ggtree.R`. To see a Knited version of it download `ggtree.html` and open it with a browser. 
+Use the IdsFile to make a metadata spreadsheet with the hapitat information for each genome, obtaining this information from the NCBI entry of each
+assembly. Inside the `orthofinder/` folder add the  that metadata file (`metadata_bradyrhizobium.csv` as an example here) and run the script
+`ggtree.Rmd`. To see a Knited version of it download `ggtree.html` and open it with a browser. 
 
 ## BGC Mining
 
