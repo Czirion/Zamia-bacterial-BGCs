@@ -1,0 +1,2 @@
+bigscapeOveview.png is an image of the Big-SCAPE overview page highlighted with green boxes to see the things to select to download the 
+absence/presence tables.
