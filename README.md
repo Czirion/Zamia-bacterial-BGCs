@@ -503,9 +503,8 @@ the browser and download the absence/presence table for each class of BGC. As sh
 "Genomes Absence/Presence", the value for "Cluster Genomes based on:" must be "Family Absence/Presence" and the value for "Show" must be "All". Then
 click on "Absence/Presnece table (tsv)" to download the table.
 
-<a href="../fig/bigscapeOverview.png">
-  <img src="../fig/bigscapeOverview" alt="BiG-SCAPE overview page. The spaces to select the appropriate values to download the tables are highlighted." />
-</a>
+![bigscapeOverview](https://user-images.githubusercontent.com/75807915/168332453-07cab7b3-8f07-4eb1-b2f9-042de2822532.png)
+
 
 ### Run Corason
 
