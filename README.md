@@ -308,7 +308,8 @@ mv Zf_mags.biom phyloseq/
 
 (The list of `bracken_kraken.report`s only contains the selected MAGs with high quality)
 
-Copy the `metadatos.csv` file to `taxonomia_mags/` to be able to use Phyloseq. The Phyloseq script can be found in `phyloseq_mags.Rmd` in this repository. To see a Knited version of it download `phyloseq_mags.html` and open it with a browser. 
+Copy the `metadatos.csv` file to `taxonomia_mags/` to be able to use Phyloseq. The Phyloseq script can be found 
+in `phyloseq_mags.Rmd` in this repository. To see a Knited version click [here](https://czirion.github.io/Zamia-bacterial-BGCs/phyloseq_mags.html).
 
 ## Genomic data base construction
 
@@ -470,7 +471,7 @@ Download the results folder `Species_Tree/` to the local machine inside a direct
 
 Use the IdsFile to make a metadata spreadsheet with the hapitat information for each genome, obtaining this information from the NCBI entry of each
 assembly. Inside the `orthofinder/` folder add the  that metadata file (`metadata_bradyrhizobium.csv` as an example here) and run the script
-`ggtree.Rmd`. To see a Knited version of it download `ggtree.html` and open it with a browser. 
+`ggtree.Rmd`. To see a Knited version of click [here](https://czirion.github.io/Zamia-bacterial-BGCs/ggtree.html). 
 
 ## BGC Mining
 
@@ -554,7 +555,7 @@ click on "Absence/Presnece table (tsv)" to download the table.
 ![image](https://user-images.githubusercontent.com/75807915/168332832-70019e88-daa1-4148-8ff8-ecec043522b5.png)
 
 Once you have the absence/presence tables downloaded you can go to RStudio and use the `bigscape_to_pheatmap.Rmd` script, found in this repository. 
-To see a Knited version of it download (click in the file name, click download, and click Ctrl+S) `bigscape_to_pheatmap.html` and open it with a browser.
+To see a Knited version of it click [here](https://czirion.github.io/Zamia-bacterial-BGCs/bigscape_to_pheatmap.html).
 
 ### Run Corason
 
