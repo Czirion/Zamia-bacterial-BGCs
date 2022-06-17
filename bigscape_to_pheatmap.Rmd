@@ -1,0 +1,479 @@
+---
+title: "bigscape_to_pheatmap"
+author: "Clau Zirion"
+date: "15/3/2022"
+output: html_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Make absence/presence heatmaps from BiG-SCAPE results
+
+Before running this script you need to download the absence/presence table of every class from the `index.html` of the BiG-SCAPE results.
+
+The working directory for this script must have: One absence_presence tsv for every BGC class, a metadata.csv downloaded from the original imputed metadata, abd file with a list of selected genomes to maintain in the reduced plot if it is needed
+
+### Load the libraries
+
+```{r, warning = FALSE, message=FALSE}
+library(pheatmap)
+library(stringr)
+library(tidyverse)
+library(RColorBrewer)
+```
+
+## ***Bacillus***
+
+### Make the needed objects
+
+Define a function to pivot the data frames:
+```{r}
+my_pivot_longer<-function(abs_pres_df){
+  abs_pres_df_long<- abs_pres_df %>%
+    pivot_longer(
+      cols = starts_with('FAM'),
+      names_to = "Familia",
+      values_to = "Presencia"
+    )
+  return(abs_pres_df_long)
+}
+```
+
+Make each absence presence table into an object. There is one for each BGC Class:
+```{r}
+setwd("/home/claudia/Documentos/genomas/zamia-dic2020/bigscape/bacillus/outdir_281221/absence_presence/")
+
+nrps<-read.table("NRPS_absence_presence.tsv", header = TRUE,  sep="\t")
+others<-read.table("others_absence_presence.tsv", header = TRUE,  sep="\t")
+pksother<-read.table("pksother_absence_presence.tsv", header = TRUE,  sep="\t")
+ripps<-read.table("RiPPs_absence_presence.tsv", header = TRUE,  sep="\t")
+terpene<-read.table("terpene_absence_presence.tsv", header = TRUE,  sep="\t")
+pnh<-read.table("PKSNRPHybrids_absence_presence.tsv", header = TRUE,  sep="\t")
+```
+
+Convert to long format:
+```{r}
+nrps<-my_pivot_longer(nrps)
+others<-my_pivot_longer(others)
+pksother<-my_pivot_longer(pksother)
+ripps<-my_pivot_longer(ripps)
+terpene<-my_pivot_longer(terpene)
+pnh<-my_pivot_longer(pnh)
+```
+
+Bind data frames into one:
+```{r}
+listed_dfs<-list(nrps, others, pksother, ripps, terpene, pnh) # Make a list with all the data frames
+names(listed_dfs)<-c("NRPS", "Otros", "PKS_Otros", "RiPPs", "Terpenos", "PKS_NRPS") # Give a name to each data frame in the list
+complete_long<- bind_rows(listed_dfs, .id = "Clase") # Bind all the data frames of the list in a single object and create a column named Class that will have the name of the data frame source in each observation
+```
+
+Tidy up the complete_df
+```{r}
+complete_long<- relocate(complete_long, Clase, .before = Familia) # Reorder columns
+complete_long$ACC <- str_replace(complete_long$ACC, pattern = " Bacteria.", replacement = "") # Eliminates the "Bacteria." from the genomes names using stringr library
+complete_long$ACC <- str_replace(complete_long$ACC, pattern = "acillus", replacement = "") #Eliminates the #acillus" from the genomes names using stringr library (Only my genomes have it)
+complete_long$ACC <- str_replace_all(complete_long$ACC, pattern = "_", replacement = " ") #Eliminates the #acillus" from the genomes names using stringr library (Only my genomes have it)
+complete_long$Presencia <- str_replace_all(complete_long$Presencia, pattern = "2", replacement = "1") 
+complete_long$Presencia <- as.numeric(complete_long$Presencia)
+```
+
+Make another data frame only for the information of which Family corresponds to which Class:
+```{r}
+classes<-complete_long %>%
+  select(Clase, Familia) %>% #Select only Class and Family columns
+  unique()# Remove all the repeated rows
+classes$Clase<-as.factor(classes$Clase) # Convert Class to factor
+classes<-as.data.frame(classes) # Convert to data frame
+rownames(classes)<-classes$Familia # Make the Family names to row names
+classes<-select(classes, Clase) # Remove Family column
+```
+
+Convert to wide format:
+```{r}
+complete_long<-select(complete_long, ACC, Familia, Presencia) # Remove Class column from complete_long
+complete_wide<- complete_long %>%
+  pivot_wider(names_from = Familia, values_from = Presencia) # Convert to wide format
+complete_wide[is.na(complete_wide)] <- 0 # Convert NAs to zeros
+complete_df<-as.data.frame(complete_wide) # Convert from tibble to data frame
+complete_df<-arrange(complete_df, ACC) # Arrange by alphabetical order in the ACC column
+rownames(complete_df)<-complete_df$ACC # Rename rows
+complete_df<-complete_df[,-1] # Remove column of names
+```
+
+Make metadata object (species_habitat):
+```{r}
+setwd("/home/claudia/Documentos/genomas/zamia-dic2020/bigscape/bacillus/outdir_281221/absence_presence/")
+
+metadata<-read.csv("metadata.csv", header = TRUE, stringsAsFactors = TRUE) # Read the metadata table
+species_habitat<-metadata %>% 
+  select(Species, Habitat) %>% # Make a smaller metadata only with names and habitats
+  arrange(Species) # Make the table be ordered alphabetically
+species_habitat[,1] = rownames(complete_df) # Change the species name in the table to the names in the complete_df so they have the exact same strings
+rownames(species_habitat)<-species_habitat$Species
+species_habitat<-select(species_habitat, Habitat)
+species_habitat$Habitat<-factor(species_habitat$Habitat, levels = c("Plant", "Rhizosphere", "Animal", "Human", "Food", "Air", "Lake", "Marine", "Soil"))
+#Translate species_habitat to Spanish
+levels(species_habitat$Habitat)<-c("Planta", "Rhizosfera", "Animal", "Humano", "Comida", "Aire", "Lago", "Mar", "Suelo")
+```
+
+### Plot
+
+Make color vectors
+```{r}
+ClassCols<- brewer.pal(length(levels(classes$Clase)),"PRGn")
+names(ClassCols)<- levels(classes$Clase) # A color for each BGC Class
+HabitatCols<- brewer.pal(length(levels(species_habitat$Habitat)), "BrBG")
+names(HabitatCols)<-levels(species_habitat$Habitat) # A color for each Habitat
+ListColour<- list (Clase = ClassCols,
+                   Habitat = HabitatCols)
+```
+
+Make small vectors:
+```{r}
+mycolors<-c("lightgray", "brown") # make color vector for absence and presence
+lg.brks<-c(0,1) # make vector to make the legends only show the two values
+lb.brks<- c("Ausencia","Presencia") # make the labels of the legend say Absence and Presence instead of 0 and 1
+```
+
+Plot:
+
+```{r}
+setwd("/home/claudia/Documentos/genomas/zamia-dic2020/bigscape/bacillus/outdir_281221/absence_presence/")
+
+pheatmap(complete_df, 
+         color= mycolors, 
+         border_color = "white",
+         annotation_col = classes,
+         annotation_row = species_habitat,
+         annotation_colors = ListColour,
+         legend_breaks = lg.brks, 
+         legend_labels = lb.brks,
+         cutree_rows = 7,
+         cutree_cols = 5,
+         show_rownames = TRUE,
+         legend=TRUE,
+         height = 26,
+         width = 22,
+         main = "Presencia de familias de BGCs en genomas de Bacillus",
+         filename = "completo_pheatmap.pdf")
+
+complete_plot<- pheatmap(complete_df, 
+         color= mycolors, 
+         border_color = "white",
+         annotation_col = classes,
+         annotation_row = species_habitat,
+         annotation_colors = ListColour,
+         legend_breaks = lg.brks, 
+         legend_labels = lb.brks,
+         cutree_rows = 4,
+         cutree_cols = 5,
+         show_rownames = TRUE,
+         legend=FALSE,
+         annotation_legend = TRUE,
+         fontsize = 8,
+         fontsize_col = 5,
+         fontsize_row = 5,
+         height = 26,
+         width = 22)
+```
+
+```{r}
+complete_plot
+```
+
+## ***Peribacillus***
+
+### Make the needed objects
+
+Make each absence presence table into an object. There is one for each BGC Class:
+```{r}
+setwd("/home/claudia/Documentos/genomas/zamia-dic2020/bigscape/peribacillus/outdir_241221/absence_presence/")
+
+nrps<-read.table("NRPS_absence_presence.tsv", header = TRUE,  sep="\t")
+others<-read.table("others_absence_presence.tsv", header = TRUE,  sep="\t")
+pksother<-read.table("pksother_absence_presence.tsv", header = TRUE,  sep="\t")
+ripps<-read.table("RiPPs_absence_presence.tsv", header = TRUE,  sep="\t")
+terpene<-read.table("terpene_absence_presence.tsv", header = TRUE,  sep="\t")
+```
+
+Convert to long format:
+```{r}
+nrps<-my_pivot_longer(nrps)
+others<-my_pivot_longer(others)
+pksother<-my_pivot_longer(pksother)
+ripps<-my_pivot_longer(ripps)
+terpene<-my_pivot_longer(terpene)
+
+```
+
+Bind data frames into one:
+```{r}
+listed_dfs<-list(nrps, others, pksother, ripps, terpene) # Make a list with all the data frames
+names(listed_dfs)<-c("NRPS", "Otros", "PKS_Otros", "RiPPs", "Terpenos") # Give a name to each data frame in the list
+complete_long<- bind_rows(listed_dfs, .id = "Clase") # Bind all the data frames of the list in a single object and create a column named Class that will have the name of the data frame source in each observation
+```
+
+Tidy up the complete_df
+```{r}
+complete_long<- relocate(complete_long, Clase, .before = Familia) # Reorder columns
+complete_long$ACC <- str_replace(complete_long$ACC, pattern = " Bacteria.", replacement = "") # Eliminates the "Bacteria." from the genomes names using stringr library
+complete_long$ACC <- str_replace(complete_long$ACC, pattern = "eribacillus", replacement = "") #Eliminates the #acillus" from the genomes names using stringr library (Only my genomes have it)
+complete_long$ACC <- str_replace_all(complete_long$ACC, pattern = "_", replacement = " ") #Eliminates the #acillus" from the genomes names using stringr library (Only my genomes have it)
+```
+
+Make another data frame only for the information of which Family corresponds to which Class:
+```{r}
+classes<-complete_long %>%
+  select(Clase, Familia) %>% #Select only Class and Family columns
+  unique()# Remove all the repeated rows
+classes$Clase<-as.factor(classes$Clase) # Convert Class to factor
+classes<-as.data.frame(classes) # Convert to data frame
+rownames(classes)<-classes$Familia # Make the Family names to row names
+classes<-select(classes, Clase) # Remove Family column
+```
+
+Convert to wide format:
+```{r}
+complete_long<-select(complete_long, ACC, Familia, Presencia) # Remove Class column from complete_long
+complete_wide<- complete_long %>%
+  pivot_wider(names_from = Familia, values_from = Presencia) # Convert to wide format
+complete_wide[is.na(complete_wide)] <- 0 # Convert NAs to zeros
+complete_df<-as.data.frame(complete_wide) # Convert from tibble to data frame
+complete_df<-arrange(complete_df, ACC) # Arrange by alphabetical order in the ACC column
+rownames(complete_df)<-complete_df$ACC # Rename rows
+complete_df<-complete_df[,-1] # Remove column of names
+```
+
+Make metadata object (species_habitat):
+```{r}
+setwd("/home/claudia/Documentos/genomas/zamia-dic2020/bigscape/peribacillus/outdir_241221/absence_presence/")
+
+metadata<-read.csv("metadata.csv", header = TRUE, stringsAsFactors = TRUE) # Read the metadata table
+species_habitat<-metadata %>% 
+  select(Species, Habitat) %>% # Make a smaller metadata only with names and habitats
+  arrange(Species) # Make the table be ordered alphabetically
+species_habitat<- species_habitat %>%
+  filter(Species != "B_subtilis_CW14")
+species_habitat[,1] = rownames(complete_df) # Change the species name in the table to the names in the complete_df so they have the exact same strings
+rownames(species_habitat)<-species_habitat$Species
+species_habitat<-select(species_habitat, Habitat)
+species_habitat$Habitat<-factor(species_habitat$Habitat, levels = c("Coralloid", "Root", "Rhizosphere","Soil"))
+#Translate species_habitat to Spanish
+levels(species_habitat$Habitat)<-c("Coraloide", "Raiz", "Rhizosfera","Suelo")
+
+rownames(complete_df) <- str_replace(rownames(complete_df), pattern = " FDAARGOS-1161", replacement = "") 
+rownames(species_habitat) <- str_replace(rownames(species_habitat), pattern = " FDAARGOS-1161", replacement = "") 
+```
+
+### Plot
+
+Make color vectors
+```{r}
+ClassCols<- brewer.pal(length(levels(classes$Clase)),"PRGn")
+names(ClassCols)<- levels(classes$Clase) # A color for each BGC Class
+HabitatCols<- brewer.pal(length(levels(species_habitat$Habitat)), "BrBG")
+names(HabitatCols)<-levels(species_habitat$Habitat) # A color for each Habitat
+ListColour<- list (Clase = ClassCols,
+                   Habitat = HabitatCols)
+```
+
+Make small vectors:
+```{r}
+mycolors<-c("lightgray", "darkgoldenrod") # make color vector for absence and presence
+lg.brks<-c(0,1) # make vector to make the legends only show the two values
+lb.brks<- c("Ausencia","Presencia") # make the labels of the legend say Absence and Presence instead of 0 and 1
+```
+
+Plot:
+
+```{r}
+pheatmap(complete_df, 
+         color= mycolors, 
+         border_color = "white",
+         annotation_col = classes,
+         annotation_row = species_habitat,
+         annotation_colors = ListColour,
+         legend_breaks = lg.brks, 
+         legend_labels = lb.brks,
+         cutree_rows = 7,
+         cutree_cols = 5,
+         show_rownames = TRUE,
+         legend=TRUE,
+         height = 5,
+         width = 10,
+         main = "Presencia de familias de BGCs en genomas de Peribacillus",
+         filename = "completo_pheatmap.pdf")
+
+complete_plot<- pheatmap(complete_df, 
+         color= mycolors, 
+         border_color = "white",
+         annotation_col = classes,
+         annotation_row = species_habitat,
+         annotation_colors = ListColour,
+         legend_breaks = lg.brks, 
+         legend_labels = lb.brks,
+         cutree_rows = 5,
+         cutree_cols = 2,
+         show_rownames = TRUE,
+         legend=FALSE,
+         annotation_legend = TRUE,
+         height = 3,
+         width = 6.5,
+         fontsize = 8,
+         fontsize_col = 8,
+         fontsize_row = 8)
+```
+
+```{r}
+complete_plot
+```
+
+## ***Bradyrhizobium***
+
+### Make the needed objects
+
+Make each absence presence table into an object. There is one for each BGC Class:
+```{r}
+setwd("/home/claudia/Documentos/genomas/zamia-dic2020/bigscape/bradyrhizobium/output_05_07_21/absence-presence/")
+
+nrps<-read.table("NRPS_absence_presence.tsv", header = TRUE,  sep="\t")
+others<-read.table("others_absence_presence.tsv", header = TRUE,  sep="\t")
+pksother<-read.table("pksother_absence_presence.tsv", header = TRUE,  sep="\t")
+ripps<-read.table("RiPPs_absence_presence.tsv", header = TRUE,  sep="\t")
+terpene<-read.table("terpene_absence_presence.tsv", header = TRUE,  sep="\t")
+```
+
+Convert to long format:
+```{r}
+nrps<-my_pivot_longer(nrps)
+others<-my_pivot_longer(others)
+pksother<-my_pivot_longer(pksother)
+ripps<-my_pivot_longer(ripps)
+terpene<-my_pivot_longer(terpene)
+```
+
+Bind data frames into one:
+```{r}
+listed_dfs<-list(nrps, others, pksother, ripps, terpene) # Make a list with all the data frames
+names(listed_dfs)<-c("NRPS", "Otros", "PKS_Otros", "RiPPs", "Terpenos") # Give a name to each data frame in the list
+complete_long<- bind_rows(listed_dfs, .id = "Clase") # Bind all the data frames of the list in a single object and create a column named Class that will have the name of the data frame Habitat in each observation
+```
+
+Tidy up the complete_df
+```{r}
+complete_long<- relocate(complete_long, Clase, .before = Familia) # Reorder columns
+complete_long$ACC <- str_replace(complete_long$ACC, pattern = " Bacteria.", replacement = "") # Eliminates the "Bacteria." from the genomes names using stringr library
+complete_long$ACC <- str_replace(complete_long$ACC, pattern = "radyrhizobium", replacement = "") #Eliminates the radyrhizobium" from the genomes names using stringr library (Only my genomes have it)
+complete_long$ACC <- str_replace_all(complete_long$ACC, pattern = "_", replacement = " ") #Eliminates the #acillus" from the genomes names using stringr library (Only my genomes have it)
+```
+
+Make another data frame only for the information of which Family corresponds to which Class:
+```{r}
+classes<-complete_long %>%
+  select(Clase, Familia) %>% #Select only Class and Family columns
+  unique()# Remove all the repeated rows
+classes$Clase<-as.factor(classes$Clase) # Convert Class to factor
+classes<-as.data.frame(classes) # Convert to data frame
+rownames(classes)<-classes$Familia # Make the Family names to row names
+classes<-select(classes, Clase) # Remove Family column
+```
+
+Convert to wide format:
+```{r}
+complete_long<-select(complete_long, ACC, Familia, Presencia) # Remove Class column from complete_long
+complete_wide<- complete_long %>%
+  pivot_wider(names_from = Familia, values_from = Presencia) # Convert to wide format
+complete_wide[is.na(complete_wide)] <- 0 # Convert NAs to zeros
+complete_df<-as.data.frame(complete_wide) # Convert from tibble to data frame
+complete_df<-arrange(complete_df, ACC) # Arrange by alphabetical order in the ACC column
+```
+
+Make metadata object (species_habitat):
+```{r}
+setwd("/home/claudia/Documentos/genomas/zamia-dic2020/bigscape/bradyrhizobium/output_05_07_21/absence-presence/")
+
+metadata<-read.csv("metadata.csv", header = TRUE, stringsAsFactors = TRUE) # Read the metadata table
+metadata$Species <- str_replace_all(metadata$Species, pattern = "_", replacement = " ") 
+metadata$Species <- str_replace_all(metadata$Species, pattern = "[.]", replacement = "") 
+species_habitat<-metadata %>% 
+  select(Species, Habitat) %>% # Make a smaller metadata only with names and habitats
+  arrange(Species) # Make the table be ordered alphabetically
+rownames(species_habitat)<-species_habitat$Species
+species_habitat<-select(species_habitat, Habitat)
+#Translate species_habitat to Spanish
+species_habitat$Habitat<-factor(species_habitat$Habitat, levels = c ("Coralloid", "Root", "Root nodule", "Root tumor", "Stem nodule", "Insect gut", "Soil"))
+levels(species_habitat$Habitat)<-c("Coraloide", "Raiz", "Nodulo de raiz", "Tumor de raiz", "Nodulo de tallo", "Intestino de insecto", "Suelo")
+```
+
+Tidy up the `complete_df`
+```{r}
+rownames(complete_df)<-rownames(species_habitat) #Make the rownames of the complete_df be identical to the rownames in the metadata
+complete_df<-complete_df[,-1]
+
+```
+
+
+### Plot
+
+Make color vectors
+```{r}
+ClassCols<- brewer.pal(length(levels(classes$Clase)),"PRGn")
+names(ClassCols)<- levels(classes$Clase) # A color for each BGC Class
+HabitatCols<- brewer.pal(length(levels(species_habitat$Habitat)), "BrBG")
+names(HabitatCols)<-levels(species_habitat$Habitat) # A color for each Habitat
+ListColour<- list (Clase = ClassCols,
+                   Habitat = HabitatCols)
+```
+
+Make small vectors:
+```{r}
+mycolors<-c("lightgray", "#8E0152") # make color vector for absence and presence
+lg.brks<-c(0,1) # make vector to make the legends only show the two values
+lb.brks<- c("Ausencia","Presencia") # make the labels of the legend say Absence and Presence instead of 0 and 1
+```
+
+Plot:
+
+```{r}
+pheatmap(complete_df, 
+         color= mycolors, 
+         border_color = "white",
+         annotation_col = classes,
+         annotation_row = species_habitat,
+         annotation_colors = ListColour,
+         legend_breaks = lg.brks, 
+         legend_labels = lb.brks,
+         cutree_rows = 3,
+         cutree_cols = 4,
+         show_rownames = TRUE,
+         legend=TRUE,
+         height = 11,
+         width = 16,
+         main = "Presencia de familias de BGCs en genomas de Bradyrhizobium",
+         filename = "pheatmap_completo.pdf")
+
+complete_plot<-pheatmap(complete_df, 
+         color= mycolors, 
+         border_color = "white",
+         annotation_col = classes,
+         annotation_row = species_habitat,
+         annotation_colors = ListColour,
+         legend_breaks = lg.brks, 
+         legend_labels = lb.brks,
+         cutree_rows = 4,
+         cutree_cols = 4,
+         show_rownames = TRUE,
+         legend=FALSE,
+         height = 11,
+         width = 16,
+         fontsize = 8,
+         fontsize_col = 5,
+         fontsize_row = 6.5,
+         annotation_legend = TRUE)
+```
+
+```{r}
+complete_plot
+```
