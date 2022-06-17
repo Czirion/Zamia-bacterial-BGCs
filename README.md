@@ -553,7 +553,8 @@ click on "Absence/Presnece table (tsv)" to download the table.
 
 ![image](https://user-images.githubusercontent.com/75807915/168332832-70019e88-daa1-4148-8ff8-ecec043522b5.png)
 
-FIXME 
+Once you have the absence/presence tables downloaded you can go to RStudio and use the `bigscape_to_pheatmap.Rmd` script, found in this repository. 
+To see a Knited version of it download (click in the file name, click download, and click Ctrl+S) `bigscape_to_pheatmap.html` and open it with a browser.
 
 ### Run Corason
 
