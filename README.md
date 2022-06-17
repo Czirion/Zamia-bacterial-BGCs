@@ -1,5 +1,3 @@
-UNDER CONSTRUCTION
-
 # Zamia-bacterial-BGCs
 
 This is a description of the pipeline followed for the *Zamia furfuracea* bacterial BGC mining project (2020-2022). 
@@ -34,8 +32,8 @@ It follows the next seps:
 - BGC Mining
 	- Run AntiSMASH
 	- Run BiG-SCAPE
-		- Make heatmap in R
-	- Run CORASON
+	- Make heatmap with BiG-SCAPE results
+	- Run CORASON  
 
 The software used is listed in `software.md` in this repository.
 
@@ -158,7 +156,7 @@ mv *krona* krona/
 
 Visualize the results in Firefox.
 
-### Make input for Phyloseq
+### Run Phyloseq in R
 
 In `taxonomia_reads/` use `kraken-biom` to make the `.biom` file that we need to visualize the taxonomy with Phyloseq in R. And move the resulting file to a folder named `phyloseq/`:
 ~~~
