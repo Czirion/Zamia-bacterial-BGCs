@@ -169,7 +169,7 @@ mv Zf.biom phyloseq/
 ~~~
 {: .language-bash}
 
-Copy the `metadatos.csv` file to `taxonomia_reads/` to be able to use Phyloseq. The Phyloseq script can be found in `phyloseq_reads.Rmd` in this repository. To see a Knited version of it download (click in the file name, click download, and click Ctrl+S) `phyloseq_reads.html` and open it with a browser. 
+Copy the `metadatos.csv` file to `taxonomia_reads/` to be able to use Phyloseq. The Phyloseq script can be found in `phyloseq_reads.Rmd` in this repository. To see a Knited version of it click [here](https://czirion.github.io/Zamia-bacterial-BGCs/phyloseq_reads.html).
 
 ## Metagenomics assembly
 
@@ -309,7 +309,7 @@ mv Zf_mags.biom phyloseq/
 (The list of `bracken_kraken.report`s only contains the selected MAGs with high quality)
 
 Copy the `metadatos.csv` file to `taxonomia_mags/` to be able to use Phyloseq. The Phyloseq script can be found 
-in `phyloseq_mags.Rmd` in this repository. To see a Knited version click [here](https://czirion.github.io/Zamia-bacterial-BGCs/phyloseq_mags.html).
+in `phylseq_mags.Rmd` in this repository. To see a Knited version click [here](https://czirion.github.io/Zamia-bacterial-BGCs/phylseq_mags.html).
 
 ## Genomic data base construction
 
