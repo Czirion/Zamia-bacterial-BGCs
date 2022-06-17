@@ -1,3 +1,5 @@
+For the published page click [here](czirion.github.io/zamia-bacterial-bgcs/).
+
 # Zamia-bacterial-BGCs
 
 This is a description of the pipeline followed for the *Zamia furfuracea* bacterial BGC mining project (2020-2022). 
