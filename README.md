@@ -1,4 +1,4 @@
-For the published page click [here](czirion.github.io/zamia-bacterial-bgcs/).
+For the published page click [here](https://czirion.github.io/Zamia-bacterial-BGCs/).
 
 # Zamia-bacterial-BGCs
 
